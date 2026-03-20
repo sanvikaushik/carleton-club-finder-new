@@ -1,0 +1,1092 @@
+:root {
+  --accent: #c8102e; /* Carleton-ish red accent */
+  --bg: #0b0f17;
+  --card: rgba(255, 255, 255, 0.08);
+  --cardSolid: #121826;
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.65);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --radius: 16px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  background: radial-gradient(1200px 600px at 50% -100px, rgba(200, 16, 46, 0.35), transparent 50%), var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.appShell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.appContent {
+  flex: 1;
+  padding-bottom: 84px; /* bottom tab space */
+}
+
+.page {
+  padding: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 20px;
+  margin: 4px 0 12px;
+  font-weight: 800;
+}
+
+.placeholderCard {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.segmentedControl {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px;
+  border-radius: 999px;
+}
+
+.segmentedItem {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 10px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.segmentedItem.active {
+  background: rgba(200, 16, 46, 0.9);
+  color: white;
+}
+
+.homeMapWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.homeMapHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.homeMapTitle {
+  font-weight: 900;
+  font-size: 16px;
+  margin: 4px 0 0;
+}
+
+.homeMapSub {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.homeMapTimeFilter {
+  min-width: 230px;
+}
+
+.mapCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.campusMap {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mapLoading {
+  padding: 18px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+
+.modalSheet {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(10, 14, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 14px 10px;
+}
+
+.modalTitle {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.modalSub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  cursor: pointer;
+}
+
+.modalActions {
+  padding: 0 14px 10px;
+}
+
+.primaryBtn {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(200, 16, 46, 0.92);
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.modalBody {
+  padding: 0 14px 14px;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.mutedText {
+  color: var(--muted);
+  font-weight: 800;
+  padding: 10px 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eventRow {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.eventRowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.eventRowTitle {
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.eventRowMeta {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eventRowBadges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 900;
+  font-size: 11px;
+  background: rgba(200, 16, 46, 0.18);
+  border: 1px solid rgba(200, 16, 46, 0.35);
+}
+
+.badge.subtle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.spacer12 {
+  height: 12px;
+}
+
+.toggleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.toggleLabel {
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.toggleSwitchWrap {
+  display: flex;
+  align-items: center;
+}
+
+.toggleInput {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggleSwitch {
+  width: 46px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  position: relative;
+}
+
+.toggleSwitch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  transition: transform 160ms ease;
+}
+
+.toggleInput:checked + .toggleSwitch {
+  background: rgba(200, 16, 46, 0.35);
+  border-color: rgba(200, 16, 46, 0.7);
+}
+
+.toggleInput:checked + .toggleSwitch::after {
+  transform: translateX(20px);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eventCard {
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.eventCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.eventCardTitle {
+  font-weight: 1000;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.eventCardClub {
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.eventCardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eventCardLine {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.eventCardFooter {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.friendChips {
+  flex: 1;
+  min-width: 0;
+}
+
+.friendCount {
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 6px;
+}
+
+.friendCount.muted {
+  color: var(--muted);
+}
+
+.friendChipRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.friendChip {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 1000;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.friendChip.extra {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.goingBtn {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 1000;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.goingBtn.active {
+  border-color: rgba(200, 16, 46, 0.8);
+  background: rgba(200, 16, 46, 0.25);
+}
+
+.clubGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.clubCard {
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.clubTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.clubName {
+  font-weight: 1000;
+  font-size: 15px;
+}
+
+.starBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.starBtn.active {
+  border-color: rgba(200, 16, 46, 0.7);
+  background: rgba(200, 16, 46, 0.25);
+}
+
+.clubCategory {
+  margin-top: 4px;
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.clubDesc {
+  margin-top: 10px;
+  font-weight: 800;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.35;
+}
+
+.clubNext {
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  padding-top: 12px;
+}
+
+.clubNextLabel {
+  font-weight: 1000;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 8px;
+}
+
+.clubNextButton {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  border-radius: 14px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.clubNextTitle {
+  font-weight: 1000;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.clubNextMeta {
+  margin-top: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profileHero {
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+}
+
+.profileName {
+  font-weight: 1000;
+  font-size: 18px;
+}
+
+.profileProgram {
+  margin-top: 6px;
+  font-weight: 900;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sectionBlock {
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  font-weight: 1000;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.listStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profileListRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.profileListMain {
+  min-width: 0;
+}
+
+.profileListName {
+  font-weight: 1000;
+  font-size: 13px;
+}
+
+.profileListMeta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.starBtn.small {
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+}
+
+.profileEventRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.profileEventMain {
+  min-width: 0;
+}
+
+.profileEventTitle {
+  font-weight: 1000;
+  font-size: 13px;
+}
+
+.profileEventMeta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.goingPill {
+  border-radius: 999px;
+  padding: 8px 10px;
+  border: 1px solid rgba(200, 16, 46, 0.6);
+  background: rgba(200, 16, 46, 0.18);
+  font-weight: 1000;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+}
+
+.settingsRow {
+  padding: 10px 0;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settingsRow:first-of-type {
+  border-top: none;
+}
+
+.detailPage {
+  padding-top: 8px;
+}
+
+.detailTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.backBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.detailTopTitle {
+  font-weight: 1000;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.detailBanner {
+  width: 100%;
+  height: 150px;
+  border-radius: 18px;
+  background-image: linear-gradient(135deg, rgba(200, 16, 46, 0.65), rgba(255, 255, 255, 0.06)),
+    url("/mock-banner.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+}
+
+.detailTitle {
+  font-weight: 1000;
+  font-size: 20px;
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+.detailClub {
+  font-weight: 900;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.detailMetaBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.detailMetaLine {
+  font-weight: 900;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.detailSection {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.detailSectionTitle {
+  font-weight: 1000;
+  font-size: 13.5px;
+  margin-bottom: 10px;
+}
+
+.detailDesc {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 800;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.tagRow {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  font-weight: 1000;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.friendChip.sm {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.joinBtn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 1000;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.joinBtn.active {
+  border-color: rgba(200, 16, 46, 0.7);
+  background: rgba(200, 16, 46, 0.25);
+}
+
+.bottomSpace {
+  height: 90px;
+}
+
+.floorSelectorLabel {
+  font-weight: 1000;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 10px;
+}
+
+.floorSelector {
+  margin-bottom: 12px;
+}
+
+.floorSelectorRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.floorBtn {
+  flex: 0 0 auto;
+  min-width: 48px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.floorBtn.active {
+  border-color: rgba(200, 16, 46, 0.7);
+  background: rgba(200, 16, 46, 0.22);
+}
+
+.sectionBlock.compact {
+  padding: 12px;
+}
+
+.roomList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roomRow {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.roomRow.active {
+  border-color: rgba(200, 16, 46, 0.7);
+  background: rgba(200, 16, 46, 0.16);
+}
+
+.roomNum {
+  font-weight: 1000;
+  font-size: 13px;
+}
+
+.roomCount {
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.weekSchedule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dayBlock {
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.dayHeader {
+  padding: 12px 14px;
+  font-weight: 1000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dayEmpty {
+  padding: 14px;
+  font-weight: 900;
+}
+
+.dayList {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.classBlock {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.classTime {
+  font-weight: 1000;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.86);
+  min-width: 110px;
+}
+
+.classMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.classTitle {
+  font-weight: 1000;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.classLocation {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.importCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.importTitle {
+  font-weight: 1000;
+  font-size: 14px;
+}
+
+.importSub {
+  margin-top: 6px;
+  font-weight: 800;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.fileInput {
+  margin-top: 12px;
+  width: 100%;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.friendList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.friendCard {
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.friendTop {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.friendAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 1000;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.friendNameBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.friendName {
+  font-weight: 1000;
+  font-size: 15px;
+}
+
+.friendMeta {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.friendEvents {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friendEventChip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 10px 12px;
+  color: white;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.friendEventTitle {
+  font-weight: 1000;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.friendEventMeta {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bottomTabBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 74px;
+  background: rgba(10, 14, 22, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tabItem {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.tabItem.active {
+  color: var(--text);
+}
+
+.tabIcon {
+  font-size: 18px;
+  line-height: 20px;
+}
+
+.tabLabel {
+  font-size: 11px;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+

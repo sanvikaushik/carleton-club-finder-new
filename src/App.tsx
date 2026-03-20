@@ -1,0 +1,59 @@
+import React from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BottomTabBar } from "./components/BottomTabBar";
+import { Home } from "./pages/Home";
+import { Explore } from "./pages/Explore";
+import { Clubs } from "./pages/Clubs";
+import { Schedule } from "./pages/Schedule";
+import { Friends } from "./pages/Friends";
+import { Profile } from "./pages/Profile";
+import { EventDetails } from "./pages/EventDetails";
+import { BuildingFloorView } from "./pages/BuildingFloorView";
+
+const AppShell: React.FC = () => {
+  const location = useLocation();
+
+  const tabPaths: Array<{ path: string; key: string }> = [
+    { path: "/", key: "home" },
+    { path: "/explore", key: "explore" },
+    { path: "/clubs", key: "clubs" },
+    { path: "/schedule", key: "schedule" },
+    { path: "/friends", key: "friends" },
+    { path: "/profile", key: "profile" },
+  ];
+
+  const activeTab =
+    tabPaths.find((t) => (t.path === "/" ? location.pathname === "/" : location.pathname.startsWith(t.path)))?.key ??
+    "home";
+
+  const showTabBar = !location.pathname.startsWith("/event/") && !location.pathname.startsWith("/building/");
+
+  return (
+    <div className="appShell">
+      <div className="appContent">{showTabBar ? null : null}
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/explore" element={<Explore />} />
+          <Route path="/clubs" element={<Clubs />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/event/:id" element={<EventDetails />} />
+          <Route path="/building/:buildingId" element={<BuildingFloorView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+
+      {showTabBar ? <BottomTabBar activeTab={activeTab} /> : null}
+    </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AppShell />
+    </BrowserRouter>
+  );
+};
+
