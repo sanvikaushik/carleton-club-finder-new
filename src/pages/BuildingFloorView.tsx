@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building, EventModel, getBuildings, getEvents } from "../api/client";
+import { CampusImageMap } from "../components/CampusMap/CampusImageMap";
+import { mergeCampusMapBuildings } from "../components/CampusMap/campusMapData";
 
 function isSameLocalDate(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -30,9 +32,10 @@ export const BuildingFloorView: React.FC = () => {
       try {
         const [b, e] = await Promise.all([getBuildings(), getEvents()]);
         if (cancelled) return;
-        setBuildings(b);
+        const mergedBuildings = mergeCampusMapBuildings(b);
+        setBuildings(mergedBuildings);
         setEvents(e);
-        const match = b.find((x) => x.id === buildingId);
+        const match = mergedBuildings.find((x) => x.id === buildingId);
         if (match) {
           setSelectedFloor(match.floors[0] ?? null);
           setSelectedRoom(null);
@@ -60,19 +63,18 @@ export const BuildingFloorView: React.FC = () => {
   }, [events, buildingId, today]);
 
   const activeEventsToday = useMemo(() => {
-    // Active/upcoming means event hasn't ended yet (end >= now) and starts today.
     return eventsToday.filter((ev) => new Date(ev.endTime).getTime() >= now.getTime());
   }, [eventsToday, now]);
 
-  const roomsWithActive = useMemo(() => {
-    const byRoom = new Map<string, number>();
-    for (const ev of activeEventsToday) {
-      byRoom.set(ev.room, (byRoom.get(ev.room) ?? 0) + 1);
+  const activeCountsByBuilding = useMemo(() => {
+    const byBuilding = new Map<string, number>();
+    for (const ev of events) {
+      if (!isSameLocalDate(new Date(ev.startTime), today)) continue;
+      if (new Date(ev.endTime).getTime() < now.getTime()) continue;
+      byBuilding.set(ev.building, (byBuilding.get(ev.building) ?? 0) + 1);
     }
-    return Array.from(byRoom.entries())
-      .map(([room, count]) => ({ room, count }))
-      .sort((a, b) => a.room.localeCompare(b.room));
-  }, [activeEventsToday]);
+    return byBuilding;
+  }, [events, today, now]);
 
   const floorEventsToday = useMemo(() => {
     if (selectedFloor == null) return [];
@@ -102,7 +104,7 @@ export const BuildingFloorView: React.FC = () => {
   if (loading) {
     return (
       <div className="page">
-        <div className="placeholderCard">Loading building…</div>
+        <div className="placeholderCard">Loading building...</div>
       </div>
     );
   }
@@ -123,6 +125,22 @@ export const BuildingFloorView: React.FC = () => {
         </button>
         <div className="detailTopTitle">{building.name}</div>
         <div />
+      </div>
+
+      <div className="sectionBlock compact">
+        <div className="buildingMapHeader">
+          <div className="sectionTitle">Campus map</div>
+          <div className="buildingMapMeta">
+            {activeEventsToday.length} active event{activeEventsToday.length === 1 ? "" : "s"} today
+          </div>
+        </div>
+        <CampusImageMap
+          ariaLabel={`Campus map with ${building.name} highlighted`}
+          buildings={buildings}
+          countsByBuilding={activeCountsByBuilding}
+          selectedBuildingId={building.id}
+          onSelectBuilding={(nextBuilding) => navigate(`/building/${encodeURIComponent(nextBuilding.id)}`)}
+        />
       </div>
 
       <div className="floorSelector">
@@ -164,7 +182,7 @@ export const BuildingFloorView: React.FC = () => {
       </div>
 
       <div className="sectionBlock compact">
-        <div className="sectionTitle">Today&apos;s events · Floor {selectedFloor}</div>
+        <div className="sectionTitle">Today's events · Floor {selectedFloor}</div>
         {filteredRoomEvents.length === 0 ? (
           <div className="mutedText">No events today.</div>
         ) : (
@@ -179,7 +197,7 @@ export const BuildingFloorView: React.FC = () => {
                 <div className="eventRowMain">
                   <div className="eventRowTitle">{ev.title}</div>
                   <div className="eventRowMeta">
-                    🕒 {formatTimeRange(ev.startTime, ev.endTime)} · {ev.room}
+                    {formatTimeRange(ev.startTime, ev.endTime)} · {ev.room}
                   </div>
                 </div>
                 <div className="eventRowBadges">
@@ -194,4 +212,3 @@ export const BuildingFloorView: React.FC = () => {
     </div>
   );
 };
-

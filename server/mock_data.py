@@ -19,31 +19,72 @@ def get_mock_data() -> dict[str, Any]:
     now = _now()
     base_hour = now.replace(minute=0, second=0, microsecond=0)
 
+    def mk_building(
+        *,
+        bid: str,
+        name: str,
+        marker_x: float,
+        marker_y: float,
+        floors: list[int] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "id": bid,
+            "name": name,
+            "mapPosition": {"x": round(marker_x / 2560 * 100, 1), "y": round(marker_y / 1656 * 80, 1)},
+            "floors": floors or [1, 2, 3],
+        }
+
     buildings = [
-        {
-            "id": "nicol",
-            "name": "Nicol Building",
-            "mapPosition": {"x": 32, "y": 26},
-            "floors": [1, 2, 3, 4],
-        },
-        {
-            "id": "uc",
-            "name": "University Centre (UC)",
-            "mapPosition": {"x": 58, "y": 32},
-            "floors": [0, 1, 2, 3],
-        },
-        {
-            "id": "minto",
-            "name": "Minto",
-            "mapPosition": {"x": 45, "y": 52},
-            "floors": [1, 2, 3],
-        },
-        {
-            "id": "canal",
-            "name": "Canal Building",
-            "mapPosition": {"x": 70, "y": 58},
-            "floors": [1, 2, 3],
-        },
+        mk_building(bid="dt", name="Dunton Tower", marker_x=810.5, marker_y=238.5, floors=[1, 2, 3, 4]),
+        mk_building(bid="le", name="Leeds House", marker_x=1790.5, marker_y=265.0),
+        mk_building(bid="ru", name="Russell House", marker_x=1632.5, marker_y=308.0),
+        mk_building(bid="gr", name="Grenville House", marker_x=1557.5, marker_y=319.0),
+        mk_building(bid="ml", name="MacOdrum Library", marker_x=696.5, marker_y=328.5, floors=[1, 2, 3, 4]),
+        mk_building(bid="sp", name="St. Patrick's Building (Carleton University Art Gallery)", marker_x=1733.5, marker_y=328.5),
+        mk_building(bid="vs", name="Visualization and Simulation Building", marker_x=413.5, marker_y=332.0),
+        mk_building(bid="pg", name="Parking Garages", marker_x=2128.5, marker_y=342.5, floors=[0]),
+        mk_building(bid="sa", name="Southam Hall (Kailash Mital Theatre)", marker_x=555.5, marker_y=345.5),
+        mk_building(bid="fr", name="Frontenac House", marker_x=1491.5, marker_y=352.0),
+        mk_building(bid="canal", name="Canal Building", marker_x=1133.0, marker_y=354.0, floors=[1, 2, 3]),
+        mk_building(bid="dh", name="Dundas House", marker_x=1869.5, marker_y=357.5),
+        mk_building(bid="ap", name="Azrieli Pavilion", marker_x=875.5, marker_y=359.5, floors=[1, 2]),
+        mk_building(bid="at", name="Azrieli Theatre", marker_x=974.5, marker_y=359.5),
+        mk_building(bid="hc", name="Human Computer Interaction Building", marker_x=446.5, marker_y=363.0),
+        mk_building(bid="sr", name="Social Sciences Research Building", marker_x=380.5, marker_y=367.5),
+        mk_building(bid="lh", name="Lanark House", marker_x=1441.5, marker_y=367.5),
+        mk_building(bid="la", name="Loeb Building", marker_x=489.5, marker_y=379.5),
+        mk_building(bid="gh", name="Glengarry House", marker_x=1658.5, marker_y=383.0),
+        mk_building(bid="sh", name="Stormont House", marker_x=1830.5, marker_y=395.5),
+        mk_building(bid="me", name="Mackenzie Building", marker_x=1297.5, marker_y=405.5, floors=[1, 2, 3, 4]),
+        mk_building(bid="pa", name="Paterson Hall", marker_x=672.5, marker_y=414.0),
+        mk_building(bid="uh", name="Urbandale Centre", marker_x=2429.0, marker_y=414.0),
+        mk_building(bid="lx", name="Lennox and Addington House", marker_x=1614.5, marker_y=427.5),
+        mk_building(bid="tc", name="Teranga Commons (formerly Residence Commons)", marker_x=1738.5, marker_y=429.0, floors=[1, 2]),
+        mk_building(bid="rh", name="Renfrew House", marker_x=1553.0, marker_y=433.0),
+        mk_building(bid="tb", name="Tory Building", marker_x=816.5, marker_y=435.0, floors=[1, 2, 3, 4]),
+        mk_building(bid="ph", name="Prescott House", marker_x=1486.0, marker_y=455.5),
+        mk_building(bid="minto", name="Minto Centre for Advanced Studies in Engineering", marker_x=1360.5, marker_y=456.0, floors=[1, 2, 3, 4]),
+        mk_building(bid="aa", name="Architecture Building", marker_x=1119.5, marker_y=457.0),
+        mk_building(bid="ab", name="ARISE Building", marker_x=559.5, marker_y=468.5),
+        mk_building(bid="uc", name="Nideyinan (formerly University Centre)", marker_x=1030.0, marker_y=474.0, floors=[0, 1, 2, 3]),
+        mk_building(bid="nicol", name="Nicol Building (Sprott School of Business)", marker_x=1184.5, marker_y=492.0, floors=[1, 2, 3, 4]),
+        mk_building(bid="hp", name="Herzberg Laboratories", marker_x=729.5, marker_y=499.0),
+        mk_building(bid="hs", name="Health Sciences Building", marker_x=989.5, marker_y=519.5, floors=[1, 2, 3, 4]),
+        mk_building(bid="sc", name="Steacie Building", marker_x=886.5, marker_y=521.5),
+        mk_building(bid="td", name="Tennis Centre", marker_x=2033.5, marker_y=550.0, floors=[1]),
+        mk_building(bid="ks", name="TAAG Park (formerly Keith Harris Stadium)", marker_x=2110.0, marker_y=550.5, floors=[1]),
+        mk_building(bid="fh", name="Fieldhouse", marker_x=1832.5, marker_y=606.0, floors=[1]),
+        mk_building(bid="rb", name="Richcraft Hall", marker_x=812.5, marker_y=612.5, floors=[1, 2, 3, 4]),
+        mk_building(bid="ac", name="Athletics", marker_x=1684.5, marker_y=657.5, floors=[1, 2]),
+        mk_building(bid="mb", name="Maintenance Building", marker_x=1284.5, marker_y=699.5, floors=[1, 2]),
+        mk_building(bid="cc", name="Colonel By Child Care Centre", marker_x=1550.5, marker_y=699.5, floors=[0, 1]),
+        mk_building(bid="ah", name="Alumni Hall", marker_x=1800.5, marker_y=743.0, floors=[1, 2]),
+        mk_building(bid="ro", name="Robertson Hall", marker_x=1080.5, marker_y=748.0, floors=[1, 2, 3, 4]),
+        mk_building(bid="gy", name="Gymnasium", marker_x=1646.5, marker_y=765.5, floors=[1]),
+        mk_building(bid="tt", name="Carleton Technology and Training Centre", marker_x=1363.5, marker_y=784.5, floors=[1, 2]),
+        mk_building(bid="nb", name="Nesbitt Biology Building", marker_x=1222.5, marker_y=842.0, floors=[1, 2, 3, 4]),
+        mk_building(bid="nw", name="National Wildlife Research Centre", marker_x=1315.5, marker_y=898.5),
+        mk_building(bid="ih", name="Ice House", marker_x=1688.0, marker_y=899.0, floors=[1]),
     ]
 
     # Mock clubs (>= 8).
@@ -381,7 +422,75 @@ def get_mock_data() -> dict[str, Any]:
             tags=["public-speaking", "lab"],
             friends_going=["f2", "f5"],
         ),
+        # Architecture Building
+        mk_event(
+            eid="e_aa_now",
+            title="Design Studio Drop-In",
+            club_id="club-photography",
+            building_id="aa",
+            floor=2,
+            room="AA-214",
+            start=current_start + timedelta(minutes=10),
+            end=current_end + timedelta(minutes=10),
+            attendance=19,
+            capacity=30,
+            food_available=False,
+            food_type=None,
+            description="Open critique tables, sketch reviews, and portfolio feedback.",
+            tags=["design", "studio"],
+            friends_going=["f1", "f3"],
+        ),
     ]
+
+    seeded_building_ids = {"nicol", "uc", "minto", "canal", "aa"}
+    generated_event_clubs = [
+        "club-ai",
+        "club-debate",
+        "club-photography",
+        "club-game-dev",
+        "club-robotics",
+        "club-board-games",
+        "club-data",
+        "club-writing",
+    ]
+    generated_friend_sets = [
+        ["f1"],
+        ["f2"],
+        ["f3"],
+        ["f4"],
+        ["f5"],
+        ["f1", "f3"],
+        ["f2", "f4"],
+        ["f3", "f5"],
+    ]
+
+    for idx, building in enumerate(b for b in buildings if b["id"] not in seeded_building_ids):
+        building_id = building["id"]
+        floor = building["floors"][0]
+        room_floor = "G" if floor == 0 else str(floor)
+        room_code = building_id.upper()
+        club_id = generated_event_clubs[idx % len(generated_event_clubs)]
+        friends_going = generated_friend_sets[idx % len(generated_friend_sets)]
+
+        events.append(
+            mk_event(
+                eid=f"e_{building_id}_now",
+                title=f"{building['name']}: Campus Connect Session",
+                club_id=club_id,
+                building_id=building_id,
+                floor=floor,
+                room=f"{room_code}-{room_floor}01",
+                start=current_start + timedelta(minutes=(idx % 4) * 5),
+                end=current_end + timedelta(minutes=(idx % 4) * 5),
+                attendance=16 + (idx % 6) * 5,
+                capacity=30 + (idx % 5) * 10,
+                food_available=idx % 3 == 0,
+                food_type="Snacks" if idx % 3 == 0 else None,
+                description="Open meetup session with campus updates, drop-in conversation, and room-level activity.",
+                tags=["community", "drop-in"],
+                friends_going=friends_going,
+            )
+        )
 
     # Clean up friend attending arrays (ensure unique + stable order).
     for f in friends:
