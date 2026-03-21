@@ -44,6 +44,10 @@ a {
   margin: 0 auto;
 }
 
+.mapPage {
+  max-width: 960px;
+}
+
 .pageTitle {
   font-size: 20px;
   margin: 4px 0 12px;
@@ -133,10 +137,19 @@ a {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.campusImageViewport {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
 .campusImageFrame {
   position: relative;
-  width: 100%;
-  aspect-ratio: 51 / 33;
+  width: max(100%, 820px);
+  aspect-ratio: 2560 / 1656;
   overflow: hidden;
   background: #0d121a;
 }
@@ -232,6 +245,17 @@ a {
   font-size: 11px;
   font-weight: 800;
   color: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 720px) {
+  .page.mapPage {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .campusImageFrame {
+    width: max(100%, 980px);
+  }
 }
 
 .mapLoading {

@@ -3,7 +3,7 @@ import { HomeMap } from "../components/HomeMap/HomeMap";
 
 export const Home: React.FC = () => {
   return (
-    <div className="page">
+    <div className="page mapPage">
       <HomeMap />
     </div>
   );

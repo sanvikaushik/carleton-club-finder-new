@@ -118,7 +118,7 @@ export const BuildingFloorView: React.FC = () => {
   }
 
   return (
-    <div className="page detailPage">
+    <div className="page detailPage mapPage">
       <div className="detailTopRow">
         <button type="button" className="backBtn" onClick={() => navigate(-1)} aria-label="Back">
           ←
