@@ -1,11 +1,10 @@
 import React from "react";
-import { HomeMap } from "../components/HomeMap/HomeMap";
+import { HomeMap3D } from "../components/HomeMap/HomeMap3D";
 
 export const Home: React.FC = () => {
   return (
     <div className="page mapPage">
-      <HomeMap />
+      <HomeMap3D />
     </div>
   );
 };
-
