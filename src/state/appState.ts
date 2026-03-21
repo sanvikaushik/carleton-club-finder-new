@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getUser, UserResponse } from "../api/client";
+import { getUser, setClubFavorite, setEventAttendance, UserResponse } from "../api/client";
 
 export type TabKey = "home" | "explore" | "clubs" | "schedule" | "friends" | "profile";
 export type HomeTimeFilter = "now" | "next2h" | "today";
@@ -39,20 +39,6 @@ type AppStateContextValue = {
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
 
-const LS_FAVORITES = "clubfinder:favorites";
-const LS_GOING = "clubfinder:going";
-
-function safeParseStringArray(v: string | null): string[] | null {
-  if (!v) return null;
-  try {
-    const parsed = JSON.parse(v);
-    if (Array.isArray(parsed) && parsed.every((x) => typeof x === "string")) return parsed;
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
 export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [userLoaded, setUserLoaded] = useState(false);
   const [user, setUser] = useState<UserResponse | null>(null);
@@ -72,19 +58,12 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
     let cancelled = false;
 
     async function load() {
-      const storedFavorites = safeParseStringArray(localStorage.getItem(LS_FAVORITES));
-      const storedGoing = safeParseStringArray(localStorage.getItem(LS_GOING));
-
       const u = await getUser();
       if (cancelled) return;
 
       setUser(u);
-
-      // Prefer local UI overrides if present; otherwise seed from backend user.
-      const favs = storedFavorites ?? u.favoriteClubIds;
-      const going = storedGoing ?? u.attendingEventIds;
-      setFavoriteClubIds(new Set(favs));
-      setGoingEventIds(new Set(going));
+      setFavoriteClubIds(new Set(u.favoriteClubIds));
+      setGoingEventIds(new Set(u.attendingEventIds));
 
       setUserLoaded(true);
     }
@@ -94,14 +73,6 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(LS_FAVORITES, JSON.stringify(Array.from(favoriteClubIds)));
-  }, [favoriteClubIds]);
-
-  useEffect(() => {
-    localStorage.setItem(LS_GOING, JSON.stringify(Array.from(goingEventIds)));
-  }, [goingEventIds]);
 
   const value = useMemo<AppStateContextValue>(
     () => ({
@@ -128,22 +99,50 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
 
       favoriteClubIds,
       toggleFavoriteClub: (clubId) => {
+        const currentlyFavorite = favoriteClubIds.has(clubId);
         setFavoriteClubIds((prev) => {
           const next = new Set(prev);
           if (next.has(clubId)) next.delete(clubId);
           else next.add(clubId);
           return next;
         });
+        if (!user) return;
+        void setClubFavorite(clubId, !currentlyFavorite, user.id)
+          .then((response) => {
+            setFavoriteClubIds(new Set(response.favoriteClubIds));
+          })
+          .catch(() => {
+            setFavoriteClubIds((prev) => {
+              const next = new Set(prev);
+              if (currentlyFavorite) next.add(clubId);
+              else next.delete(clubId);
+              return next;
+            });
+          });
       },
 
       goingEventIds,
       toggleGoingEvent: (eventId) => {
+        const currentlyGoing = goingEventIds.has(eventId);
         setGoingEventIds((prev) => {
           const next = new Set(prev);
           if (next.has(eventId)) next.delete(eventId);
           else next.add(eventId);
           return next;
         });
+        if (!user) return;
+        void setEventAttendance(eventId, !currentlyGoing, user.id)
+          .then((response) => {
+            setGoingEventIds(new Set(response.attendingEventIds));
+          })
+          .catch(() => {
+            setGoingEventIds((prev) => {
+              const next = new Set(prev);
+              if (currentlyGoing) next.add(eventId);
+              else next.delete(eventId);
+              return next;
+            });
+          });
       },
 
       isClubFavorite: (clubId) => favoriteClubIds.has(clubId),

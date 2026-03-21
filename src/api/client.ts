@@ -74,6 +74,25 @@ export async function getEvents(): Promise<EventModel[]> {
   return res.data;
 }
 
+export async function getFilteredEvents(params: {
+  filter?: "now" | "upcoming" | "today" | "myclubs";
+  userId?: string;
+  scheduleConflicts?: boolean;
+  buildingId?: string;
+  clubId?: string;
+}): Promise<EventModel[]> {
+  const res = await api.get("/events", {
+    params: {
+      filter: params.filter,
+      user_id: params.userId,
+      schedule_conflicts: params.scheduleConflicts ? "true" : undefined,
+      building_id: params.buildingId,
+      club_id: params.clubId,
+    },
+  });
+  return res.data;
+}
+
 export async function getEvent(id: string): Promise<EventModel> {
   const res = await api.get(`/events/${encodeURIComponent(id)}`);
   return res.data;
@@ -81,6 +100,15 @@ export async function getEvent(id: string): Promise<EventModel> {
 
 export async function getClubs(): Promise<Club[]> {
   const res = await api.get("/clubs");
+  return res.data;
+}
+
+export async function setClubFavorite(clubId: string, favorite: boolean, userId = "u1"): Promise<{
+  clubId: string;
+  favorite: boolean;
+  favoriteClubIds: string[];
+}> {
+  const res = await api.put(`/clubs/${encodeURIComponent(clubId)}/favorite`, { userId, favorite });
   return res.data;
 }
 
@@ -95,12 +123,22 @@ export async function getSchedule(): Promise<ScheduleResponse> {
 }
 
 export async function getUser(): Promise<UserResponse> {
-  const res = await api.get("/user");
+  const res = await api.get("/profile");
   return res.data;
 }
 
 export async function getBuildings(): Promise<Building[]> {
   const res = await api.get("/buildings");
+  return res.data;
+}
+
+export async function setEventAttendance(eventId: string, attending: boolean, userId = "u1"): Promise<{
+  eventId: string;
+  attending: boolean;
+  attendanceCount: number;
+  attendingEventIds: string[];
+}> {
+  const res = await api.put(`/events/${encodeURIComponent(eventId)}/attendance`, { userId, attending });
   return res.data;
 }
 
