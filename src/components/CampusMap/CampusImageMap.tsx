@@ -62,8 +62,8 @@ export const CampusImageMap: React.FC<{
     });
   }
 
-  function handlePointerMove(event: React.PointerEvent<SVGGElement>, marker: CampusMapMarker) {
-    const point = toFramePoint(event.clientX, event.clientY);
+  function handlePointerMove(_: React.PointerEvent<SVGGElement>, marker: CampusMapMarker) {
+    const point = toFramePointFromMarker(marker);
     if (!point) return;
     showTooltip(marker, point);
   }
@@ -110,12 +110,6 @@ export const CampusImageMap: React.FC<{
 
               function handleSelectMarker() {
                 if (!marker.building) return;
-                console.debug("[CampusMap] building selected", {
-                  buildingId: marker.building.id,
-                  code: marker.code,
-                  name: marker.name,
-                  selected: selectedBuildingId === marker.building.id,
-                });
                 onSelectBuilding(marker.building);
               }
 
@@ -127,6 +121,7 @@ export const CampusImageMap: React.FC<{
                   }`}
                   role={interactive ? "button" : undefined}
                   tabIndex={interactive ? 0 : undefined}
+                  onPointerDown={(event) => event.stopPropagation()}
                   onClick={interactive ? handleSelectMarker : undefined}
                   onPointerEnter={(event) => handlePointerMove(event, marker)}
                   onPointerMove={(event) => handlePointerMove(event, marker)}
@@ -145,16 +140,10 @@ export const CampusImageMap: React.FC<{
                   }
                   aria-label={`${marker.name} (${marker.code})${count > 0 ? `, ${count} active event${count === 1 ? "" : "s"}` : ""}`}
                 >
-                  <circle
-                    className="campusRegionShape"
-                    cx={marker.cx}
-                    cy={marker.cy}
-                    r={marker.r}
-                    data-code={marker.code}
-                    data-name={marker.name}
-                  />
+                  <circle className="campusRegionShape" cx={marker.cx} cy={marker.cy} r={marker.r + 2} />
+                  <circle cx={marker.cx} cy={marker.cy} r={marker.r + 6} fill="transparent" />
                   {debugMarkers ? (
-                    <text className="campusRegionDebugCode" x={marker.cx} y={marker.cy - marker.r - 12} textAnchor="middle">
+                    <text className="campusRegionDebugCode" x={marker.cx} y={marker.cy - marker.r - 30} textAnchor="middle">
                       {marker.code}
                     </text>
                   ) : null}
