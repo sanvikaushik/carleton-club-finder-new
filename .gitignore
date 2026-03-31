@@ -1,0 +1,42 @@
+# ----------------------
+# Logs
+# ----------------------
+*.log
+*.err.log
+
+# ----------------------
+# Python / Flask
+# ----------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+instance/
+server/instance/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# ----------------------
+# Node / React / Vite
+# ----------------------
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# ----------------------
+# OS / Misc
+# ----------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------
+# Env files (IMPORTANT)
+# ----------------------
+.env
+.env.*

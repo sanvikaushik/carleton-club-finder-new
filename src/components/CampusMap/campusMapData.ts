@@ -1,8 +1,8 @@
 import { Building } from "../../api/client";
 
-export const CAMPUS_MAP_IMAGE_SRC = "/carleton-campus-map-ses.jpg";
-export const CAMPUS_MAP_IMAGE_WIDTH = 2560;
-export const CAMPUS_MAP_IMAGE_HEIGHT = 1656;
+export const CAMPUS_MAP_IMAGE_SRC = "/carleton-campus-map.jpg";
+export const CAMPUS_MAP_IMAGE_WIDTH = 5100;
+export const CAMPUS_MAP_IMAGE_HEIGHT = 3300;
 export const CAMPUS_MAP_VIEW_BOX = `0 0 ${CAMPUS_MAP_IMAGE_WIDTH} ${CAMPUS_MAP_IMAGE_HEIGHT}`;
 
 type CampusMapMarkerDefinition = {
@@ -37,66 +37,48 @@ function marker(definition: CampusMapMarkerSeed): CampusMapMarkerDefinition {
   };
 }
 
-// Marker centers are aligned to the red circular map badges in the SES campus map.
+// Marker centers are aligned to the red circular map badges in the illustrated campus map.
 const CAMPUS_MAP_MARKERS: CampusMapMarkerDefinition[] = [
-  marker({ buildingId: "dt", code: "DT", name: "Dunton Tower", cx: 810.5, cy: 238.5, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "le", code: "LE", name: "Leeds House", cx: 1790.5, cy: 265.0 }),
-  marker({ buildingId: "ru", code: "RU", name: "Russell House", cx: 1632.5, cy: 308.0 }),
-  marker({ buildingId: "gr", code: "GR", name: "Grenville House", cx: 1557.5, cy: 319.0 }),
-  marker({ buildingId: "ml", code: "ML", name: "MacOdrum Library", cx: 696.5, cy: 328.5, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "sp", code: "SP", name: "St. Patrick's Building (Carleton University Art Gallery)", cx: 1733.5, cy: 328.5 }),
-  marker({ buildingId: "vs", code: "VS", name: "Visualization and Simulation Building", cx: 413.5, cy: 332.0 }),
-  marker({ markerId: "pg-east", buildingId: "pg", code: "PG", name: "Parking Garages", cx: 2128.5, cy: 342.5, floors: [0] }),
-  marker({ buildingId: "sa", code: "SA", name: "Southam Hall (Kailash Mital Theatre)", cx: 555.5, cy: 345.5 }),
-  marker({ buildingId: "fr", code: "FR", name: "Frontenac House", cx: 1491.5, cy: 352.0 }),
-  marker({ buildingId: "canal", code: "CB", name: "Canal Building", cx: 1133.0, cy: 354.0, floors: [1, 2, 3] }),
-  marker({ buildingId: "dh", code: "DH", name: "Dundas House", cx: 1869.5, cy: 357.5 }),
-  marker({ buildingId: "ap", code: "AP", name: "Azrieli Pavilion", cx: 875.5, cy: 359.5, floors: [1, 2] }),
-  marker({ buildingId: "at", code: "AT", name: "Azrieli Theatre", cx: 974.5, cy: 359.5 }),
-  marker({ buildingId: "hc", code: "HC", name: "Human Computer Interaction Building", cx: 446.5, cy: 363.0 }),
-  marker({ buildingId: "sr", code: "SR", name: "Social Sciences Research Building", cx: 380.5, cy: 367.5 }),
-  marker({ buildingId: "lh", code: "LH", name: "Lanark House", cx: 1441.5, cy: 367.5 }),
-  marker({ buildingId: "la", code: "LA", name: "Loeb Building", cx: 489.5, cy: 379.5 }),
-  marker({ buildingId: "gh", code: "GH", name: "Glengarry House", cx: 1658.5, cy: 383.0 }),
-  marker({ buildingId: "sh", code: "SH", name: "Stormont House", cx: 1830.5, cy: 395.5 }),
-  marker({ buildingId: "me", code: "ME", name: "Mackenzie Building", cx: 1297.5, cy: 405.5, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "pa", code: "PA", name: "Paterson Hall", cx: 672.5, cy: 414.0 }),
-  marker({ buildingId: "uh", code: "UH", name: "Urbandale Centre", cx: 2429.0, cy: 414.0 }),
-  marker({ buildingId: "lx", code: "LX", name: "Lennox and Addington House", cx: 1614.5, cy: 427.5 }),
-  marker({ buildingId: "tc", code: "TC", name: "Teranga Commons (formerly Residence Commons)", cx: 1738.5, cy: 429.0, floors: [1, 2] }),
-  marker({ buildingId: "rh", code: "RH", name: "Renfrew House", cx: 1553.0, cy: 433.0 }),
-  marker({ buildingId: "tb", code: "TB", name: "Tory Building", cx: 816.5, cy: 435.0, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "ph", code: "PH", name: "Prescott House", cx: 1486.0, cy: 455.5 }),
+  marker({ buildingId: "dt", code: "DT", name: "Dunton Tower", cx: 813, cy: 400, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "ml", code: "ML", name: "MacOdrum Library", cx: 1444, cy: 590, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "canal", code: "CB", name: "Canal Building", cx: 2194, cy: 1014, floors: [1, 2, 3] }),
+  marker({ buildingId: "tb", code: "TB", name: "Tory Building", cx: 1728, cy: 1046, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "uc", code: "UC", name: "Nideyinan (formerly University Centre)", cx: 1893, cy: 1200, floors: [0, 1, 2, 3] }),
+  marker({ buildingId: "hp", code: "HP", name: "Herzberg Laboratories", cx: 1657, cy: 1181 }),
+  marker({ buildingId: "sc", code: "SC", name: "Steacie Building", cx: 1876, cy: 1431 }),
+  marker({ buildingId: "me", code: "ME", name: "Mackenzie Building", cx: 2558, cy: 1090, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "lh", code: "LH", name: "Lanark House", cx: 2856, cy: 492 }),
+  marker({ buildingId: "fr", code: "FR", name: "Frontenac House", cx: 2909, cy: 651 }),
+  marker({ buildingId: "gr", code: "GR", name: "Grenville House", cx: 3228, cy: 987 }),
+  marker({ buildingId: "ru", code: "RU", name: "Russell House", cx: 3448, cy: 796 }),
+  marker({ buildingId: "sp", code: "SP", name: "St. Patrick's Building (Carleton University Art Gallery)", cx: 3649, cy: 806 }),
+  marker({ buildingId: "le", code: "LE", name: "Leeds House", cx: 3845, cy: 608 }),
+  marker({ buildingId: "gh", code: "GH", name: "Glengarry House", cx: 3442, cy: 1009 }),
+  marker({ buildingId: "dh", code: "DH", name: "Dundas House", cx: 3994, cy: 948 }),
+  marker({ buildingId: "sh", code: "SH", name: "Stormont House", cx: 3924, cy: 1127 }),
+  marker({ buildingId: "ph", code: "PH", name: "Prescott House", cx: 3184, cy: 1367 }),
+  marker({ buildingId: "rh", code: "RH", name: "Renfrew House", cx: 3244, cy: 1237 }),
+  marker({ buildingId: "lx", code: "LX", name: "Lennox and Addington House", cx: 3435, cy: 1205 }),
   marker({
     buildingId: "minto",
     code: "MC",
     name: "Minto Centre for Advanced Studies in Engineering",
-    cx: 1360.5,
-    cy: 456.0,
+    cx: 2822,
+    cy: 1417,
     floors: [1, 2, 3, 4],
   }),
-  marker({ buildingId: "aa", code: "AA", name: "Architecture Building", cx: 1119.5, cy: 457.0 }),
-  marker({ buildingId: "ab", code: "AB", name: "ARISE Building", cx: 559.5, cy: 468.5 }),
-  marker({ buildingId: "uc", code: "NN", name: "Nideyinan (formerly University Centre)", cx: 1030.0, cy: 474.0, floors: [0, 1, 2, 3] }),
-  marker({ buildingId: "nicol", code: "NI", name: "Nicol Building (Sprott School of Business)", cx: 1184.5, cy: 492.0, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "hp", code: "HP", name: "Herzberg Laboratories", cx: 729.5, cy: 499.0 }),
-  marker({ buildingId: "hs", code: "HS", name: "Health Sciences Building", cx: 989.5, cy: 519.5, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "sc", code: "SC", name: "Steacie Building", cx: 886.5, cy: 521.5 }),
-  marker({ buildingId: "td", code: "TD", name: "Tennis Centre", cx: 2033.5, cy: 550.0, floors: [1] }),
-  marker({ buildingId: "ks", code: "KS", name: "TAAG Park (formerly Keith Harris Stadium)", cx: 2110.0, cy: 550.5, floors: [1] }),
-  marker({ buildingId: "fh", code: "FH", name: "Fieldhouse", cx: 1832.5, cy: 606.0, floors: [1] }),
-  marker({ buildingId: "rb", code: "RB", name: "Richcraft Hall", cx: 812.5, cy: 612.5, floors: [1, 2, 3, 4] }),
-  marker({ markerId: "pg-central", buildingId: "pg", code: "PG", name: "Parking Garages", cx: 1117.5, cy: 637.5, floors: [0] }),
-  marker({ buildingId: "ac", code: "AC", name: "Athletics", cx: 1684.5, cy: 657.5, floors: [1, 2] }),
-  marker({ buildingId: "mb", code: "MB", name: "Maintenance Building", cx: 1284.5, cy: 699.5, floors: [1, 2] }),
-  marker({ buildingId: "cc", code: "CC", name: "Colonel By Child Care Centre", cx: 1550.5, cy: 699.5, floors: [0, 1] }),
-  marker({ buildingId: "ah", code: "AH", name: "Alumni Hall", cx: 1800.5, cy: 743.0, floors: [1, 2] }),
-  marker({ buildingId: "ro", code: "RO", name: "Robertson Hall", cx: 1080.5, cy: 748.0, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "gy", code: "GY", name: "Gymnasium", cx: 1646.5, cy: 765.5, floors: [1] }),
-  marker({ buildingId: "tt", code: "TT", name: "Carleton Technology and Training Centre", cx: 1363.5, cy: 784.5, floors: [1, 2] }),
-  marker({ buildingId: "nb", code: "NB", name: "Nesbitt Biology Building", cx: 1222.5, cy: 842.0, floors: [1, 2, 3, 4] }),
-  marker({ buildingId: "nw", code: "NW", name: "National Wildlife Research Centre", cx: 1315.5, cy: 898.5 }),
-  marker({ buildingId: "ih", code: "IH", name: "Ice House", cx: 1688.0, cy: 899.0, floors: [1] }),
+  marker({ buildingId: "rb", code: "RB", name: "Richcraft Hall", cx: 1753, cy: 1607, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "pg", code: "PG", name: "Parking Garages", cx: 2079, cy: 1858, floors: [0] }),
+  marker({ buildingId: "ro", code: "RO", name: "Robertson Hall", cx: 1962, cy: 2086, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "mb", code: "MB", name: "Maintenance Building", cx: 2414, cy: 1953, floors: [1, 2] }),
+  marker({ buildingId: "nw", code: "NW", name: "National Wildlife Research Centre", cx: 2543, cy: 2529 }),
+  marker({ buildingId: "nb", code: "NB", name: "Nesbitt Biology Building", cx: 2800, cy: 2282, floors: [1, 2, 3, 4] }),
+  marker({ buildingId: "tt", code: "TT", name: "Carleton Technology and Training Centre", cx: 2865, cy: 2270, floors: [1, 2] }),
+  marker({ buildingId: "cc", code: "CC", name: "Colonel By Child Care Centre", cx: 3075, cy: 2075, floors: [0, 1] }),
+  marker({ buildingId: "ih", code: "IH", name: "Ice House", cx: 3312, cy: 2485, floors: [1] }),
+  marker({ buildingId: "ah", code: "AH", name: "Alumni Hall", cx: 3186, cy: 2292, floors: [1, 2] }),
+  marker({ buildingId: "ac", code: "AC", name: "Athletics", cx: 3404, cy: 2041, floors: [1, 2] }),
+  marker({ buildingId: "gy", code: "GY", name: "Gymnasium", cx: 3392, cy: 2277, floors: [1] }),
 ];
 
 function clamp(value: number, min: number, max: number) {
@@ -191,9 +173,5 @@ export function getCampusMapMarkers(buildings: Building[]): CampusMapMarker[] {
     };
   });
 
-  const fallbackMarkers = Array.from(remainingBuildings.values())
-    .map((building) => getFallbackMarker(building))
-    .filter((mapMarker): mapMarker is CampusMapMarker => mapMarker !== null);
-
-  return [...markers, ...fallbackMarkers];
+  return markers;
 }
