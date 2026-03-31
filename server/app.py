@@ -1,17 +1,28 @@
 from __future__ import annotations
 
+import os
+
 from flask import Flask
 from flask_cors import CORS
 
 try:
+    from .DB_management.migrate_db import apply_migrations
     from .routes import api_bp
 except ImportError:
+    from DB_management.migrate_db import apply_migrations
     from routes import api_bp
 
 
 def create_app() -> Flask:
+    apply_migrations()
+
     app = Flask(__name__)
-    app.config.update(JSON_SORT_KEYS=False)
+    app.config.update(
+        JSON_SORT_KEYS=False,
+        SECRET_KEY=os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"),
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+    )
 
     CORS(
         app,

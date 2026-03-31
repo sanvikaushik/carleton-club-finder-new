@@ -1,17 +1,12 @@
 import React from "react";
 import { EventModel, Friend } from "../api/client";
+import { AttendanceMeter } from "./AttendanceMeter";
 
 function formatTimeRange(startIso: string, endIso: string) {
   const start = new Date(startIso);
   const end = new Date(endIso);
   const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
-  const timeA = start.toLocaleTimeString([], timeOpts);
-  const timeB = end.toLocaleTimeString([], timeOpts);
-  return `${timeA} - ${timeB}`;
-}
-
-function formatAttendanceCount(count: number, capacity: number) {
-  return `${count}/${capacity}`;
+  return `${start.toLocaleTimeString([], timeOpts)} - ${end.toLocaleTimeString([], timeOpts)}`;
 }
 
 function initials(name: string) {
@@ -36,10 +31,13 @@ export function EventCard(props: {
   const friendCount = attendingFriends.length;
   const shownFriends = attendingFriends.slice(0, 3);
   const extra = Math.max(0, friendCount - shownFriends.length);
+  const shownNames = shownFriends.map((friend) => friend.name).join(", ");
+  const crowdRatio = event.capacity > 0 ? event.attendanceCount / event.capacity : 0;
+  const trending = event.happeningNow || crowdRatio > 0.5 || friendCount >= 2;
 
   return (
     <div
-      className="eventCard"
+      className={`eventCard ${event.happeningNow ? "isLive" : ""}`}
       role="group"
       aria-label={`Event: ${event.title}`}
       onClick={onOpen}
@@ -48,19 +46,36 @@ export function EventCard(props: {
       <div className="eventCardHeader">
         <div className="eventCardTitleRow">
           <div className="eventCardTitle">{event.title}</div>
+          <div className="eventBadgeRow">
+            {event.happeningNow ? <span className="liveBadge">Happening Now</span> : null}
+            {trending ? <span className="eventBadge">Trending</span> : null}
+          </div>
         </div>
         <div className="eventCardClub">{clubName}</div>
       </div>
 
-      <div className="eventCardMeta">
-        <div className="eventCardLine">🏛️ {event.building} · {event.room}</div>
-        <div className="eventCardLine">🕒 {formatTimeRange(event.startTime, event.endTime)}</div>
-        <div className="eventCardLine">👥 Attendance: {formatAttendanceCount(event.attendanceCount, event.capacity)}</div>
-        <div className="eventCardLine">
-          {event.foodAvailable ? "🍽️ Food available" : "🚫 No food"}{" "}
-          {event.foodAvailable && event.foodType ? `(${event.foodType})` : ""}
-        </div>
+      <div className="tagRow compact">
+        {event.tags.slice(0, 3).map((tag) => (
+          <span key={tag} className="tag subtleTag">
+            #{tag}
+          </span>
+        ))}
       </div>
+
+      <div className="eventCardMeta">
+        <div className="eventCardLine">{event.building} · {event.room}</div>
+        <div className="eventCardLine">{formatTimeRange(event.startTime, event.endTime)}</div>
+        <div className="eventCardLine">{event.foodAvailable ? `Food: ${event.foodType ?? "Available"}` : "No food listed"}</div>
+      </div>
+
+      <AttendanceMeter
+        eventId={event.id}
+        attendanceCount={event.attendanceCount}
+        capacity={event.capacity}
+        startTime={event.startTime}
+        endTime={event.endTime}
+        compact
+      />
 
       <div className="eventCardFooter">
         <div className="friendChips" aria-label="Friends attending">
@@ -68,17 +83,21 @@ export function EventCard(props: {
             <>
               <div className="friendCount">{friendCount} friend{friendCount === 1 ? "" : "s"} going</div>
               <div className="friendChipRow">
-                {shownFriends.map((f) => (
+                {shownFriends.map((friend) => (
                   <div
-                    key={f.id}
+                    key={friend.id}
                     className="friendChip"
-                    title={f.name}
-                    style={{ background: f.avatarColor ?? "rgba(255,255,255,0.2)" }}
+                    title={friend.name}
+                    style={{ background: friend.avatarColor ?? "rgba(255,255,255,0.2)" }}
                   >
-                    {initials(f.name)}
+                    {initials(friend.name)}
                   </div>
                 ))}
                 {extra > 0 ? <div className="friendChip extra">+{extra}</div> : null}
+              </div>
+              <div className="friendNamesLine">
+                {shownNames}
+                {extra > 0 ? ` and ${extra} more` : ""}
               </div>
             </>
           ) : (
@@ -89,15 +108,14 @@ export function EventCard(props: {
         <button
           type="button"
           className={`goingBtn ${isGoing ? "active" : ""}`}
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={(eventClick) => {
+            eventClick.stopPropagation();
             onToggleGoing();
           }}
         >
-          I’m Going
+          {isGoing ? "Going" : "I'm Going"}
         </button>
       </div>
     </div>
   );
 }
-

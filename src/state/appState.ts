@@ -1,5 +1,19 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getUser, setClubFavorite, setEventAttendance, UserResponse } from "../api/client";
+import {
+  AuthUser,
+  followClub,
+  getAuthMe,
+  getUser,
+  logIn,
+  logOut,
+  LoginPayload,
+  setClubFavorite,
+  setEventAttendance,
+  signUp,
+  SignUpPayload,
+  unfollowClub,
+  UserResponse,
+} from "../api/client";
 
 export type TabKey = "home" | "explore" | "clubs" | "schedule" | "friends" | "profile";
 export type HomeTimeFilter = "now" | "next2h" | "today";
@@ -8,6 +22,13 @@ export type ExploreFilter = "now" | "upcoming" | "myclubs";
 type AppStateContextValue = {
   user: UserResponse | null;
   userLoaded: boolean;
+  authUser: AuthUser | null;
+  authLoaded: boolean;
+  isAuthenticated: boolean;
+  refreshSessionState: () => Promise<void>;
+  signUpUser: (payload: SignUpPayload) => Promise<AuthUser>;
+  logInUser: (payload: LoginPayload) => Promise<AuthUser>;
+  logOutUser: () => Promise<void>;
 
   selectedTab: TabKey;
   setSelectedTab: (tab: TabKey) => void;
@@ -42,6 +63,8 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [userLoaded, setUserLoaded] = useState(false);
   const [user, setUser] = useState<UserResponse | null>(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   const [selectedTab, setSelectedTab] = useState<TabKey>("home");
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
@@ -54,21 +77,38 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
   const [favoriteClubIds, setFavoriteClubIds] = useState<Set<string>>(new Set());
   const [goingEventIds, setGoingEventIds] = useState<Set<string>>(new Set());
 
+  const refreshSessionState = async () => {
+    const [sessionUser, profileUser] = await Promise.all([getAuthMe(), getUser()]);
+    setAuthUser(sessionUser);
+    setAuthLoaded(true);
+    setUser(profileUser);
+    setFavoriteClubIds(new Set(profileUser.favoriteClubIds));
+    setGoingEventIds(new Set(profileUser.attendingEventIds));
+    setUserLoaded(true);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const u = await getUser();
-      if (cancelled) return;
-
-      setUser(u);
-      setFavoriteClubIds(new Set(u.favoriteClubIds));
-      setGoingEventIds(new Set(u.attendingEventIds));
-
-      setUserLoaded(true);
+      try {
+        const [sessionUser, profileUser] = await Promise.all([getAuthMe(), getUser()]);
+        if (cancelled) return;
+        setAuthUser(sessionUser);
+        setAuthLoaded(true);
+        setUser(profileUser);
+        setFavoriteClubIds(new Set(profileUser.favoriteClubIds));
+        setGoingEventIds(new Set(profileUser.attendingEventIds));
+        setUserLoaded(true);
+      } catch {
+        if (cancelled) return;
+        setAuthUser(null);
+        setAuthLoaded(true);
+        setUserLoaded(true);
+      }
     }
 
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
@@ -78,6 +118,24 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
     () => ({
       user,
       userLoaded,
+      authUser,
+      authLoaded,
+      isAuthenticated: Boolean(authUser),
+      refreshSessionState,
+      signUpUser: async (payload) => {
+        const signedUpUser = await signUp(payload);
+        await refreshSessionState();
+        return signedUpUser;
+      },
+      logInUser: async (payload) => {
+        const loggedInUser = await logIn(payload);
+        await refreshSessionState();
+        return loggedInUser;
+      },
+      logOutUser: async () => {
+        await logOut();
+        await refreshSessionState();
+      },
 
       selectedTab,
       setSelectedTab,
@@ -106,8 +164,18 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
           else next.add(clubId);
           return next;
         });
-        if (!user) return;
-        void setClubFavorite(clubId, !currentlyFavorite, user.id)
+
+        const mutation = authUser
+          ? currentlyFavorite
+            ? unfollowClub(clubId)
+            : followClub(clubId)
+          : user
+            ? setClubFavorite(clubId, !currentlyFavorite, user.id)
+            : null;
+
+        if (!mutation) return;
+
+        void mutation
           .then((response) => {
             setFavoriteClubIds(new Set(response.favoriteClubIds));
           })
@@ -151,6 +219,8 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
     [
       user,
       userLoaded,
+      authUser,
+      authLoaded,
       selectedTab,
       selectedBuildingId,
       selectedEventId,
@@ -170,4 +240,3 @@ export function useAppState(): AppStateContextValue {
   if (!ctx) throw new Error("useAppState must be used within AppStateProvider");
   return ctx;
 }
-

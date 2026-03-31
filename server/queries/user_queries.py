@@ -17,7 +17,7 @@ def get_user_by_id(user_id: str) -> dict | None:
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, name, program
+            SELECT id, name, program, email, year
             FROM users
             WHERE id = ?;
             """,
@@ -31,6 +31,8 @@ def get_user_by_id(user_id: str) -> dict | None:
         "id": row["id"],
         "name": row["name"],
         "program": row["program"],
+        "email": row["email"],
+        "year": row["year"],
         "favoriteClubIds": get_favorite_club_ids(user_id),
         "attendingEventIds": get_attending_event_ids(user_id),
     }

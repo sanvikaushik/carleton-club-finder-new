@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Club, EventModel, Friend, getClubs, getEvent, getFriends } from "../api/client";
+import { AttendanceMeter } from "../components/AttendanceMeter";
+import { Club, EventModel, Friend, getClubs, getEvent, getEventFriendsGoing, getFriends } from "../api/client";
 import { useAppState } from "../state/appState";
 
 function formatDateTime(iso: string) {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return { date, time };
+  const date = new Date(iso);
+  return `${date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} · ${date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
 }
 
 function initials(name: string) {
@@ -15,21 +17,24 @@ function initials(name: string) {
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
+    .map((part) => part[0]?.toUpperCase())
     .join("");
 }
+
+const REACTION_OPTIONS = ["🔥", "🎉", "🧠"];
 
 export const EventDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toggleGoingEvent, isEventGoing } = useAppState();
+  const { toggleGoingEvent, isEventGoing, isAuthenticated } = useAppState();
 
   const eventId = id ? decodeURIComponent(id) : null;
-
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<EventModel | null>(null);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [eventFriends, setEventFriends] = useState<Friend[] | null>(null);
+  const [reaction, setReaction] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,35 +42,48 @@ export const EventDetails: React.FC = () => {
       if (!eventId) return;
       setLoading(true);
       try {
-        const [e, c, f] = await Promise.all([getEvent(eventId), getClubs(), getFriends()]);
+        const [eventRow, clubRows, friendRows, friendsGoingPayload] = await Promise.all([
+          getEvent(eventId),
+          getClubs(),
+          getFriends(),
+          isAuthenticated ? getEventFriendsGoing(eventId) : Promise.resolve(null),
+        ]);
         if (cancelled) return;
-        setEvent(e);
-        setClubs(c);
-        setFriends(f);
+        setEvent(eventRow);
+        setClubs(clubRows);
+        setFriends(friendRows);
+        setEventFriends(friendsGoingPayload?.friends ?? null);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
+  }, [eventId, isAuthenticated]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const saved = window.localStorage.getItem(`event-reaction:${eventId}`);
+    setReaction(saved);
   }, [eventId]);
 
   const clubName = useMemo(() => {
     if (!event) return "";
-    return clubs.find((c) => c.id === event.clubId)?.name ?? "Club";
+    return clubs.find((club) => club.id === event.clubId)?.name ?? "Club";
   }, [clubs, event]);
 
   const friendsGoing = useMemo(() => {
+    if (eventFriends) return eventFriends;
     if (!event) return [];
-    const byId = new Map(friends.map((f) => [f.id, f] as const));
-    return event.friendsGoing.map((id) => byId.get(id)).filter(Boolean) as Friend[];
-  }, [event, friends]);
+    const byId = new Map(friends.map((friend) => [friend.id, friend] as const));
+    return event.friendsGoing.map((friendId) => byId.get(friendId)).filter(Boolean) as Friend[];
+  }, [event, eventFriends, friends]);
 
-  const isGoing = eventId ? isEventGoing(eventId) : false;
-
-  if (!eventId) return null;
+  if (!eventId) {
+    return null;
+  }
 
   return (
     <div className="page detailPage">
@@ -78,55 +96,100 @@ export const EventDetails: React.FC = () => {
       </div>
 
       {loading || !event ? (
-        <div className="placeholderCard">Loading event…</div>
+        <div className="placeholderCard">Loading event...</div>
       ) : (
         <>
-          <div className="detailBanner" aria-hidden />
+          <div className={`detailBanner enriched ${event.happeningNow ? "live" : ""}`} aria-hidden />
 
-          <div className="detailTitle">{event.title}</div>
-          <div className="detailClub">{clubName}</div>
+          <div className="detailTitleRow">
+            <div>
+              <div className="detailTitle">{event.title}</div>
+              <div className="detailClub">{clubName}</div>
+            </div>
+            {event.happeningNow ? <div className="liveBadge">Happening Now</div> : null}
+          </div>
 
-          <div className="detailMetaBlock">
-            <div className="detailMetaLine">
-              📅 {formatDateTime(event.startTime).date} · {formatDateTime(event.startTime).time} -{" "}
-              {formatDateTime(event.endTime).time}
+          <div className="tagRow">
+            {event.tags.map((tag) => (
+              <span key={tag} className="tag">
+                #{tag}
+              </span>
+            ))}
+          </div>
+
+          <div className="detailMetaGrid">
+            <div className="detailMetaCard">
+              <div className="detailMetaLabel">When</div>
+              <div className="detailMetaValue">{formatDateTime(event.startTime)}</div>
+              <div className="detailMetaSmall">Ends {formatDateTime(event.endTime)}</div>
             </div>
-            <div className="detailMetaLine">📍 {event.building} · {event.room}</div>
-            <div className="detailMetaLine">
-              👥 Attendance: {event.attendanceCount}/{event.capacity}
+            <div className="detailMetaCard">
+              <div className="detailMetaLabel">Where</div>
+              <div className="detailMetaValue">{event.building}</div>
+              <div className="detailMetaSmall">{event.room}</div>
             </div>
-            <div className="detailMetaLine">
-              {event.foodAvailable ? `🍽️ Food available${event.foodType ? `: ${event.foodType}` : ""}` : "🚫 No food available"}
+            <div className="detailMetaCard">
+              <div className="detailMetaLabel">Crowd</div>
+              <div className="detailMetaValue">{event.attendanceCount}/{event.capacity}</div>
+              <div className="detailMetaSmall">{friendsGoing.length} friends spotted</div>
             </div>
+          </div>
+
+          <div className="detailSection">
+            <div className="detailSectionTitle">Campus energy</div>
+            <AttendanceMeter
+              eventId={event.id}
+              attendanceCount={event.attendanceCount}
+              capacity={event.capacity}
+              startTime={event.startTime}
+              endTime={event.endTime}
+            />
           </div>
 
           <div className="detailSection">
             <div className="detailSectionTitle">About</div>
             <div className="detailDesc">{event.description}</div>
-            {event.tags.length ? <div className="tagRow">{event.tags.slice(0, 4).map((t) => <span key={t} className="tag">#{t}</span>)}</div> : null}
           </div>
 
           <div className="detailSection">
             <div className="detailSectionTitle">Friends attending</div>
             {friendsGoing.length === 0 ? (
-              <div className="mutedText">No friends going (yet).</div>
+              <div className="mutedText">No friends going yet.</div>
             ) : (
-              <div className="friendChipRow">
-                {friendsGoing.map((f) => (
-                  <div key={f.id} className="friendChip sm" style={{ background: f.avatarColor ?? "rgba(255,255,255,0.2)" }}>
-                    {initials(f.name)}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="friendChipRow">
+                  {friendsGoing.map((friend) => (
+                    <div key={friend.id} className="friendChip sm" style={{ background: friend.avatarColor ?? "rgba(255,255,255,0.2)" }} title={friend.name}>
+                      {initials(friend.name)}
+                    </div>
+                  ))}
+                </div>
+                <div className="friendNamesLine detailFriendNames">{friendsGoing.map((friend) => friend.name).join(", ")}</div>
+              </>
             )}
           </div>
 
-          <button
-            type="button"
-            className={`joinBtn ${isGoing ? "active" : ""}`}
-            onClick={() => toggleGoingEvent(event.id)}
-          >
-            Join Event
+          <div className="detailSection">
+            <div className="detailSectionTitle">Quick reactions</div>
+            <div className="reactionRow">
+              {REACTION_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`reactionChip ${reaction === option ? "active" : ""}`}
+                  onClick={() => {
+                    setReaction(option);
+                    window.localStorage.setItem(`event-reaction:${event.id}`, option);
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button type="button" className={`joinBtn ${isEventGoing(event.id) ? "active" : ""}`} onClick={() => toggleGoingEvent(event.id)}>
+            {isEventGoing(event.id) ? "Leave Event" : "Join Event"}
           </button>
 
           <div className="bottomSpace" />
@@ -135,4 +198,3 @@ export const EventDetails: React.FC = () => {
     </div>
   );
 };
-

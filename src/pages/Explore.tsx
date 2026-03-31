@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EventCard } from "../components/EventCard";
+import { DiscoveryPanel } from "../components/DiscoveryPanel";
 import { SegmentedControl, SegmentedOption } from "../components/filters/SegmentedControl";
 import { ScheduleToggle } from "../components/ScheduleToggle";
-import { getClubs, getEvents, getFriends, getSchedule, EventModel, Friend, Club, ScheduleResponse } from "../api/client";
+import { getClubs, getDiscovery, getEvents, getFriends, getSchedule, EventModel, Friend, Club, ScheduleResponse } from "../api/client";
 import { useAppState, ExploreFilter } from "../state/appState";
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -12,75 +13,65 @@ function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
 
 export const Explore: React.FC = () => {
   const navigate = useNavigate();
-  const {
-    exploreFilter,
-    setExploreFilter,
-    scheduleConflictEnabled,
-    setScheduleConflictEnabled,
-    favoriteClubIds,
-    toggleGoingEvent,
-    isEventGoing,
-  } = useAppState();
+  const { exploreFilter, setExploreFilter, scheduleConflictEnabled, setScheduleConflictEnabled, favoriteClubIds, toggleGoingEvent, isEventGoing } = useAppState();
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventModel[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
+  const [forYou, setForYou] = useState<EventModel[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       try {
-        const [e, c, f, s] = await Promise.all([getEvents(), getClubs(), getFriends(), getSchedule()]);
+        const [eventRows, clubRows, friendRows, scheduleRows, discovery] = await Promise.all([getEvents(), getClubs(), getFriends(), getSchedule(), getDiscovery()]);
         if (cancelled) return;
-        setEvents(e);
-        setClubs(c);
-        setFriends(f);
-        setSchedule(s);
+        setEvents(eventRows);
+        setClubs(clubRows);
+        setFriends(friendRows);
+        setSchedule(scheduleRows);
+        setForYou(discovery.forYouEvents);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const clubById = useMemo(() => new Map(clubs.map((c) => [c.id, c] as const)), [clubs]);
-
+  const clubById = useMemo(() => new Map(clubs.map((club) => [club.id, club] as const)), [clubs]);
   const now = useMemo(() => new Date(), []);
 
   const filtered = useMemo(() => {
-    const nowLocal = now;
-
-    const eventsForSegment = events.filter((ev) => {
-      const start = new Date(ev.startTime);
-      const end = new Date(ev.endTime);
-
-      const isNow = start <= nowLocal && end >= nowLocal;
-      const isUpcoming = start > nowLocal;
+    const eventsForSegment = events.filter((event) => {
+      const start = new Date(event.startTime);
+      const end = new Date(event.endTime);
+      const isNow = start <= now && end >= now;
+      const isUpcoming = start > now;
 
       if (exploreFilter === "now") return isNow;
       if (exploreFilter === "upcoming") return isUpcoming;
-      if (exploreFilter === "myclubs") return favoriteClubIds.has(ev.clubId) && (isNow || isUpcoming);
+      if (exploreFilter === "myclubs") return favoriteClubIds.has(event.clubId) && (isNow || isUpcoming);
       return true;
     });
 
     if (!schedule || !scheduleConflictEnabled) return eventsForSegment;
 
-    return eventsForSegment.filter((ev) => {
-      const eStart = new Date(ev.startTime);
-      const eEnd = new Date(ev.endTime);
-      return !schedule.classes.some((cls) => {
-        const cStart = new Date(cls.startDateTime);
-        const cEnd = new Date(cls.endDateTime);
-        return overlaps(eStart, eEnd, cStart, cEnd);
+    return eventsForSegment.filter((event) => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      return !schedule.classes.some((scheduleClass) => {
+        const classStart = new Date(scheduleClass.startDateTime);
+        const classEnd = new Date(scheduleClass.endDateTime);
+        return overlaps(eventStart, eventEnd, classStart, classEnd);
       });
     });
-  }, [events, exploreFilter, schedule, scheduleConflictEnabled, favoriteClubIds, now]);
+  }, [events, exploreFilter, favoriteClubIds, now, schedule, scheduleConflictEnabled]);
 
   const segmentOptions: SegmentedOption<ExploreFilter>[] = [
     { value: "now", label: "Now" },
@@ -100,24 +91,46 @@ export const Explore: React.FC = () => {
 
       <div className="spacer12" />
 
+      <DiscoveryPanel title="For You" subtitle="Quick picks before the full event feed.">
+        {loading ? (
+          <div className="placeholderCard">Loading recommendations...</div>
+        ) : (
+          <div className="stack">
+            {forYou.slice(0, 2).map((event) => (
+              <EventCard
+                key={`foryou-${event.id}`}
+                event={event}
+                clubName={clubById.get(event.clubId)?.name ?? "Club"}
+                friends={friends}
+                isGoing={isEventGoing(event.id)}
+                onToggleGoing={() => toggleGoingEvent(event.id)}
+                onOpen={() => navigate(`/event/${encodeURIComponent(event.id)}`)}
+              />
+            ))}
+          </div>
+        )}
+      </DiscoveryPanel>
+
+      <div className="spacer12" />
+
       {loading ? (
-        <div className="placeholderCard">Loading events…</div>
+        <div className="placeholderCard">Loading events...</div>
       ) : filtered.length === 0 ? (
         <div className="placeholderCard">No events match your filters.</div>
       ) : (
         <div className="stack">
-          {filtered.map((ev) => {
-            const club = clubById.get(ev.clubId);
+          {filtered.map((event) => {
+            const club = clubById.get(event.clubId);
             if (!club) return null;
             return (
               <EventCard
-                key={ev.id}
-                event={ev}
+                key={event.id}
+                event={event}
                 clubName={club.name}
                 friends={friends}
-                isGoing={isEventGoing(ev.id)}
-                onToggleGoing={() => toggleGoingEvent(ev.id)}
-                onOpen={() => navigate(`/event/${encodeURIComponent(ev.id)}`)}
+                isGoing={isEventGoing(event.id)}
+                onToggleGoing={() => toggleGoingEvent(event.id)}
+                onOpen={() => navigate(`/event/${encodeURIComponent(event.id)}`)}
               />
             );
           })}
@@ -126,4 +139,3 @@ export const Explore: React.FC = () => {
     </div>
   );
 };
-

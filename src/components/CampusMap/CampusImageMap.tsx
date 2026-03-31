@@ -14,6 +14,7 @@ type TooltipState = {
   code: string;
   name: string;
   count: number;
+  friendCount: number;
   x: number;
   y: number;
 };
@@ -22,63 +23,36 @@ export const CampusImageMap: React.FC<{
   ariaLabel: string;
   buildings: Building[];
   countsByBuilding?: Map<string, number>;
+  friendCountsByBuilding?: Map<string, number>;
   onSelectBuilding: (building: Building) => void;
   selectedBuildingId?: string | null;
   debugMarkers?: boolean;
-}> = ({ ariaLabel, buildings, countsByBuilding, onSelectBuilding, selectedBuildingId, debugMarkers = false }) => {
+}> = ({ ariaLabel, buildings, countsByBuilding, friendCountsByBuilding, onSelectBuilding, selectedBuildingId, debugMarkers = false }) => {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const mapMarkers = useMemo(() => getCampusMapMarkers(buildings), [buildings]);
 
-  function toFramePoint(clientX: number, clientY: number) {
-    const rect = frameRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    };
-  }
-
   function toFramePointFromMarker(marker: CampusMapMarker) {
     const rect = frameRef.current?.getBoundingClientRect();
     if (!rect) return null;
-
     return {
       x: (marker.tooltipX / CAMPUS_MAP_IMAGE_WIDTH) * rect.width,
       y: (marker.tooltipY / CAMPUS_MAP_IMAGE_HEIGHT) * rect.height,
     };
   }
 
-  function showTooltip(marker: CampusMapMarker, point: { x: number; y: number }) {
+  function showTooltip(marker: CampusMapMarker) {
+    const point = toFramePointFromMarker(marker);
+    if (!point) return;
     setTooltip({
       markerId: marker.id,
       code: marker.code,
       name: marker.name,
       count: marker.building ? countsByBuilding?.get(marker.building.id) ?? 0 : 0,
+      friendCount: marker.building ? friendCountsByBuilding?.get(marker.building.id) ?? 0 : 0,
       x: point.x,
       y: point.y,
-    });
-  }
-
-  function handlePointerMove(_: React.PointerEvent<SVGGElement>, marker: CampusMapMarker) {
-    const point = toFramePointFromMarker(marker);
-    if (!point) return;
-    showTooltip(marker, point);
-  }
-
-  function handleFocus(marker: CampusMapMarker) {
-    const point = toFramePointFromMarker(marker);
-    if (!point) return;
-    showTooltip(marker, point);
-  }
-
-  function hideTooltip(markerId?: string) {
-    setTooltip((current) => {
-      if (!current) return null;
-      if (!markerId || current.markerId === markerId) return null;
-      return current;
     });
   }
 
@@ -89,12 +63,7 @@ export const CampusImageMap: React.FC<{
           <img className="campusImage" src={CAMPUS_MAP_IMAGE_SRC} alt="" aria-hidden="true" />
           <div className="campusImageShade" aria-hidden="true" />
 
-          <svg
-            className={`campusSvgOverlay ${debugMarkers ? "debug" : ""}`}
-            viewBox={CAMPUS_MAP_VIEW_BOX}
-            preserveAspectRatio="xMidYMid meet"
-            aria-hidden="true"
-          >
+          <svg className={`campusSvgOverlay ${debugMarkers ? "debug" : ""}`} viewBox={CAMPUS_MAP_VIEW_BOX} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <defs>
               <filter id="campus-region-glow" x="-30%" y="-30%" width="160%" height="160%">
                 <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="rgba(255, 214, 10, 0.9)" />
@@ -104,9 +73,12 @@ export const CampusImageMap: React.FC<{
 
             {mapMarkers.map((marker) => {
               const count = marker.building ? countsByBuilding?.get(marker.building.id) ?? 0 : 0;
+              const friendCount = marker.building ? friendCountsByBuilding?.get(marker.building.id) ?? 0 : 0;
               const selected = marker.building?.id === selectedBuildingId;
               const hovered = tooltip?.markerId === marker.id;
               const interactive = Boolean(marker.building);
+              const live = count > 0;
+              const heatRadius = marker.r + Math.min(count * 6, 20);
 
               function handleSelectMarker() {
                 if (!marker.building) return;
@@ -116,18 +88,17 @@ export const CampusImageMap: React.FC<{
               return (
                 <g
                   key={marker.id}
-                  className={`campusRegion ${interactive ? "isClickable" : ""} ${selected ? "selected" : ""} ${hovered ? "hovered" : ""} ${
-                    debugMarkers ? "debug" : ""
-                  }`}
+                  className={`campusRegion ${interactive ? "isClickable" : ""} ${selected ? "selected" : ""} ${hovered ? "hovered" : ""} ${live ? "isLive" : ""} ${
+                    friendCount > 0 ? "hasFriends" : ""
+                  } ${debugMarkers ? "debug" : ""}`}
                   role={interactive ? "button" : undefined}
                   tabIndex={interactive ? 0 : undefined}
-                  onPointerDown={(event) => event.stopPropagation()}
                   onClick={interactive ? handleSelectMarker : undefined}
-                  onPointerEnter={(event) => handlePointerMove(event, marker)}
-                  onPointerMove={(event) => handlePointerMove(event, marker)}
-                  onPointerLeave={() => hideTooltip(marker.id)}
-                  onFocus={interactive ? () => handleFocus(marker) : undefined}
-                  onBlur={interactive ? () => hideTooltip(marker.id) : undefined}
+                  onPointerEnter={() => showTooltip(marker)}
+                  onPointerMove={() => showTooltip(marker)}
+                  onPointerLeave={() => setTooltip((current) => (current?.markerId === marker.id ? null : current))}
+                  onFocus={interactive ? () => showTooltip(marker) : undefined}
+                  onBlur={interactive ? () => setTooltip((current) => (current?.markerId === marker.id ? null : current)) : undefined}
                   onKeyDown={
                     interactive
                       ? (event) => {
@@ -138,10 +109,12 @@ export const CampusImageMap: React.FC<{
                         }
                       : undefined
                   }
-                  aria-label={`${marker.name} (${marker.code})${count > 0 ? `, ${count} active event${count === 1 ? "" : "s"}` : ""}`}
+                  aria-label={`${marker.name} (${marker.code})${count > 0 ? `, ${count} active events` : ""}${friendCount > 0 ? `, ${friendCount} friends nearby` : ""}`}
                 >
+                  {live ? <circle className="campusHeatRing" cx={marker.cx} cy={marker.cy} r={heatRadius} /> : null}
                   <circle className="campusRegionShape" cx={marker.cx} cy={marker.cy} r={marker.r + 2} />
-                  <circle cx={marker.cx} cy={marker.cy} r={marker.r + 6} fill="transparent" />
+                  {live ? <circle className="campusPulseRing" cx={marker.cx} cy={marker.cy} r={marker.r + 6} /> : null}
+                  {friendCount > 0 ? <circle className="campusFriendHalo" cx={marker.cx} cy={marker.cy} r={marker.r + 12} /> : null}
                   {debugMarkers ? (
                     <text className="campusRegionDebugCode" x={marker.cx} y={marker.cy - marker.r - 30} textAnchor="middle">
                       {marker.code}
@@ -156,11 +129,8 @@ export const CampusImageMap: React.FC<{
             <div className="campusTooltip" style={{ left: tooltip.x, top: tooltip.y }}>
               <div className="campusTooltipTitle">{tooltip.name}</div>
               <div className="campusTooltipMeta">{tooltip.code}</div>
-              {tooltip.count > 0 ? (
-                <div className="campusTooltipMeta">
-                  {tooltip.count} active event{tooltip.count === 1 ? "" : "s"}
-                </div>
-              ) : null}
+              {tooltip.count > 0 ? <div className="campusTooltipMeta">{tooltip.count} active events</div> : null}
+              {tooltip.friendCount > 0 ? <div className="campusTooltipMeta">{tooltip.friendCount} friends nearby</div> : null}
             </div>
           ) : null}
         </div>

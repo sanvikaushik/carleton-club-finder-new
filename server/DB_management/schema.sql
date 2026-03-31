@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS event_attendees;
 DROP TABLE IF EXISTS event_tags;
 DROP TABLE IF EXISTS schedule_classes;
 DROP TABLE IF EXISTS favorites;
+DROP TABLE IF EXISTS friend_requests;
 DROP TABLE IF EXISTS friends;
 DROP TABLE IF EXISTS building_floors;
 DROP TABLE IF EXISTS events;
@@ -13,6 +14,9 @@ CREATE TABLE users (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     program TEXT,
+    year TEXT,
+    email TEXT,
+    password_hash TEXT,
     avatar_color TEXT,
     is_friend_profile INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -35,6 +39,10 @@ CREATE TABLE clubs (
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     description TEXT NOT NULL,
+    meeting_location TEXT,
+    contact_email TEXT,
+    social_link TEXT,
+    image_url TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -84,6 +92,18 @@ CREATE TABLE friends (
     CHECK (user_id <> friend_id)
 );
 
+CREATE TABLE friend_requests (
+    id TEXT PRIMARY KEY,
+    sender_user_id TEXT NOT NULL,
+    receiver_user_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (sender_user_id <> receiver_user_id),
+    CHECK (status IN ('pending', 'accepted', 'declined'))
+);
+
 CREATE TABLE event_attendees (
     user_id TEXT NOT NULL,
     event_id TEXT NOT NULL,
@@ -110,3 +130,6 @@ CREATE INDEX idx_events_start_time ON events(start_time);
 CREATE INDEX idx_events_building_id ON events(building_id);
 CREATE INDEX idx_events_club_id ON events(club_id);
 CREATE INDEX idx_schedule_classes_user_id ON schedule_classes(user_id);
+CREATE UNIQUE INDEX idx_users_email_unique ON users(email);
+CREATE INDEX idx_friend_requests_sender ON friend_requests(sender_user_id, status);
+CREATE INDEX idx_friend_requests_receiver ON friend_requests(receiver_user_id, status);
