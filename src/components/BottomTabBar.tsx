@@ -1,5 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { NotificationBell } from "./NotificationBell";
+import { useAppState } from "../state/appState";
 
 type TabKey = "home" | "explore" | "clubs" | "schedule" | "friends" | "profile";
 
@@ -13,6 +15,8 @@ const tabs: Array<{ key: TabKey; label: string; to: string; icon: string }> = [
 ];
 
 export const BottomTabBar: React.FC<{ activeTab: string }> = ({ activeTab }) => {
+  const { unreadNotificationCount, isAuthenticated } = useAppState();
+
   return (
     <nav className="bottomTabBar" aria-label="Bottom navigation">
       {tabs.map((t) => {
@@ -26,6 +30,7 @@ export const BottomTabBar: React.FC<{ activeTab: string }> = ({ activeTab }) => 
           </Link>
         );
       })}
+      <NotificationBell unreadCount={isAuthenticated ? unreadNotificationCount : 0} />
     </nav>
   );
 };

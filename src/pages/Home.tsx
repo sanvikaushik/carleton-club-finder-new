@@ -11,7 +11,7 @@ import { useAppState } from "../state/appState";
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const { isEventGoing, toggleGoingEvent } = useAppState();
+  const { isEventGoing, toggleGoingEvent, unreadNotificationCount, isAuthenticated } = useAppState();
 
   const [loading, setLoading] = useState(true);
   const [discovery, setDiscovery] = useState<DiscoveryPayload | null>(null);
@@ -39,7 +39,7 @@ export const Home: React.FC = () => {
   }, []);
 
   const clubNameById = useMemo(() => new Map(clubs.map((club) => [club.id, club.name] as const)), [clubs]);
-  const unreadCount = discovery?.notifications.length ?? 0;
+  const unreadCount = isAuthenticated ? unreadNotificationCount : 0;
 
   return (
     <div className="page mapPage homePage">
@@ -48,9 +48,14 @@ export const Home: React.FC = () => {
           <h1 className="pageTitle">Campus Pulse</h1>
           <div className="pageSubtitle">A more social, live view of clubs, friends, and what is happening right now.</div>
         </div>
-        <button type="button" className="headerActionBtn" onClick={() => navigate("/notifications")}>
-          Notifications {unreadCount > 0 ? `(${unreadCount})` : ""}
-        </button>
+        <div className="headerActionGroup">
+          <button type="button" className="secondaryBtn headerSecondaryBtn" onClick={() => navigate("/search")}>
+            Search
+          </button>
+          <button type="button" className="headerActionBtn" onClick={() => navigate("/notifications")}>
+            Notifications {unreadCount > 0 ? `(${unreadCount})` : ""}
+          </button>
+        </div>
       </div>
 
       <div className="heroBanner">

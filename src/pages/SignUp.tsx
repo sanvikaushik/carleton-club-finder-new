@@ -40,8 +40,8 @@ export const SignUp: React.FC = () => {
     setSubmitError("");
     setSubmitState("loading");
     try {
-      await signUpUser(form);
-      navigate("/profile");
+      const user = await signUpUser(form);
+      navigate(user.onboardingCompleted ? "/profile" : "/onboarding");
     } catch (error) {
       if (axios.isAxiosError<{ error?: string; fieldErrors?: Partial<Record<keyof SignUpPayload, string>> }>(error)) {
         setFieldErrors(error.response?.data?.fieldErrors ?? {});

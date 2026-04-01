@@ -80,6 +80,18 @@ a {
   white-space: nowrap;
 }
 
+.headerActionGroup {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.headerSecondaryBtn {
+  width: auto;
+  min-width: 92px;
+}
+
 .authPage {
   display: flex;
   align-items: center;
@@ -2109,6 +2121,520 @@ a {
   .heroStatGrid,
   .detailMetaGrid,
   .badgeShelf {
+    grid-template-columns: 1fr;
+  }
+}
+
+.notificationBell {
+  position: relative;
+}
+
+.notificationBellIcon {
+  font-size: 14px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.notificationBellBadge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(200, 16, 46, 0.96);
+  color: white;
+  font-size: 10px;
+  font-weight: 1000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.notificationToolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.notificationToolbarBtn {
+  width: auto;
+}
+
+.notificationList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notificationCard {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.notificationCard.unread {
+  border-color: rgba(200, 16, 46, 0.36);
+  background: linear-gradient(180deg, rgba(200, 16, 46, 0.12), rgba(255, 255, 255, 0.04));
+}
+
+.notificationCard.read {
+  opacity: 0.9;
+}
+
+.notificationMain {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: white;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.notificationTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.notificationType {
+  font-size: 11px;
+  font-weight: 1000;
+  color: rgba(255, 255, 255, 0.78);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notificationUnreadDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(200, 16, 46, 0.95);
+}
+
+.notificationTitle {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.notificationMessage {
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.4;
+}
+
+.notificationMeta {
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.notificationActions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.notificationActionBtn {
+  width: auto;
+  min-width: 110px;
+}
+
+.searchPageIntro {
+  margin-bottom: 12px;
+}
+
+.searchInput {
+  font-size: 15px;
+}
+
+.searchResultsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.searchSection {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.searchSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.searchSectionCount {
+  font-size: 11px;
+  font-weight: 1000;
+  color: var(--muted);
+}
+
+.searchSectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.searchResultCard {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchResultTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.searchResultTitle {
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.searchResultBadge {
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 10.5px;
+  font-weight: 1000;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+
+.searchResultMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.searchResultSub {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.searchRecentRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.searchRecentChip {
+  border-radius: 999px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.interestChipGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.interestChip {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.interestChip.active {
+  border-color: rgba(200, 16, 46, 0.72);
+  background: rgba(200, 16, 46, 0.22);
+}
+
+.interestChip.static {
+  cursor: default;
+}
+
+.profilePreferenceActions {
+  margin-top: 12px;
+}
+
+.preferencesEmptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboardingPage {
+  max-width: 560px;
+}
+
+.onboardingCard {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(200, 16, 46, 0.08), rgba(255, 255, 255, 0.03));
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.onboardingStepHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.onboardingStepMetaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.onboardingEyebrow,
+.onboardingProgressLabel {
+  font-size: 11px;
+  font-weight: 1000;
+  color: rgba(255, 255, 255, 0.78);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.onboardingProgressTrack {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.onboardingProgressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(200, 16, 46, 0.92), rgba(255, 213, 64, 0.92));
+  transition: width 220ms ease;
+}
+
+.onboardingHero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.onboardingHeroStatGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.onboardingInfoList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboardingInfoRow {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.onboardingSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboardingSelectionGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.onboardingSelectCard {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  box-shadow: var(--shadow);
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.onboardingSelectCard.selected {
+  border-color: rgba(200, 16, 46, 0.72);
+  background: linear-gradient(180deg, rgba(200, 16, 46, 0.16), rgba(255, 255, 255, 0.04));
+}
+
+.onboardingSelectTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.onboardingSelectTitle {
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.onboardingSelectMeta {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.onboardingSelectBody {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.45;
+}
+
+.onboardingSelectReason {
+  margin-top: 10px;
+  font-size: 11.5px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.onboardingSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboardingActions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.onboardingActionBtn {
+  width: auto;
+  min-width: 120px;
+}
+
+@media (max-width: 640px) {
+  .onboardingHeroStatGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .onboardingActions {
+    flex-direction: column;
+  }
+
+  .onboardingActionBtn {
+    width: 100%;
+  }
+}
+
+.formTwoCol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.togglePill {
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.togglePill.active {
+  border-color: rgba(200, 16, 46, 0.7);
+  background: rgba(200, 16, 46, 0.22);
+}
+
+.organizerActionRow {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.organizerActionBtn {
+  width: auto;
+  min-width: 120px;
+}
+
+.organizerDangerBtn {
+  width: auto;
+  min-width: 120px;
+  border-color: rgba(255, 115, 115, 0.46);
+  background: rgba(200, 16, 46, 0.18);
+}
+
+.organizerMembershipList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.organizerEventCardWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inlineActionRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.organizerDashboardRow {
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .formTwoCol {
     grid-template-columns: 1fr;
   }
 }

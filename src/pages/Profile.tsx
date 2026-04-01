@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getClubs, getEvents, Club, EventModel } from "../api/client";
+import { Club, EventModel, getClubs, getEvents, getManagedClubs } from "../api/client";
 import { useAppState } from "../state/appState";
 
 function formatDayTime(startIso: string) {
   const date = new Date(startIso);
-  return `${date.toLocaleDateString([], { weekday: "short" })} · ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  return `${date.toLocaleDateString([], { weekday: "short" })} | ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
 export const Profile: React.FC = () => {
@@ -15,16 +15,22 @@ export const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [events, setEvents] = useState<EventModel[]>([]);
+  const [managedClubs, setManagedClubs] = useState<Club[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       try {
-        const [clubRows, eventRows] = await Promise.all([getClubs(), getEvents()]);
+        const [clubRows, eventRows, managedClubRows] = await Promise.all([
+          getClubs(),
+          getEvents(),
+          isAuthenticated ? getManagedClubs().catch(() => []) : Promise.resolve([]),
+        ]);
         if (cancelled) return;
         setClubs(clubRows);
         setEvents(eventRows);
+        setManagedClubs(managedClubRows);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -33,7 +39,7 @@ export const Profile: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const favoriteClubs = useMemo(() => clubs.filter((club) => favoriteClubIds.has(club.id)), [clubs, favoriteClubIds]);
   const goingEvents = useMemo(() => events.filter((event) => goingEventIds.has(event.id)), [events, goingEventIds]);
@@ -54,7 +60,7 @@ export const Profile: React.FC = () => {
         <>
           <div className="profileHero upgraded">
             <div className="profileName">{user?.name ?? "Student"}</div>
-            <div className="profileProgram">{[user?.program, user?.year].filter(Boolean).join(" · ") || "Carleton student"}</div>
+            <div className="profileProgram">{[user?.program, user?.year].filter(Boolean).join(" | ") || "Carleton student"}</div>
 
             <div className="heroStatGrid compactStats">
               <div className="heroStatCard">
@@ -96,6 +102,67 @@ export const Profile: React.FC = () => {
           </div>
 
           <div className="sectionBlock">
+            <div className="sectionTitle">Interests</div>
+            {user?.interests?.length ? (
+              <>
+                <div className="interestChipGrid">
+                  {user.interests.map((interest) => (
+                    <div key={interest} className="interestChip active static">
+                      {interest}
+                    </div>
+                  ))}
+                </div>
+                <div className="profilePreferenceActions">
+                  <button type="button" className="secondaryBtn notificationToolbarBtn" onClick={() => navigate("/onboarding")}>
+                    Edit Preferences
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="preferencesEmptyState">
+                <div className="mutedText">
+                  Pick a few interests to improve recommendations across Home, Explore, and club suggestions.
+                </div>
+                <button type="button" className="primaryBtn notificationToolbarBtn" onClick={() => navigate("/onboarding")}>
+                  Set Interests
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="sectionBlock">
+            <div className="sectionTitle">Organizer Dashboard</div>
+            {managedClubs.length === 0 ? (
+              <div className="mutedText">You are not managing any clubs yet.</div>
+            ) : (
+              <div className="listStack">
+                {managedClubs.map((club) => (
+                  <div key={club.id} className="profileListRow organizerDashboardRow">
+                    <div className="profileListMain">
+                      <div className="profileListName">{club.name}</div>
+                      <div className="profileListMeta">
+                        {[club.userRole, `${club.activeEventCount ?? 0} active events`, `${club.followerCount ?? 0} followers`].filter(Boolean).join(" | ")}
+                      </div>
+                    </div>
+                    <div className="inlineActionRow">
+                      {club.canManageEvents ? (
+                        <button type="button" className="secondaryBtn organizerActionBtn" onClick={() => navigate(`/clubs/${encodeURIComponent(club.id)}/events/create`)}>
+                          Create Event
+                        </button>
+                      ) : null}
+                      {club.canEditClub ? (
+                        <button type="button" className="secondaryBtn organizerActionBtn" onClick={() => navigate(`/clubs/${encodeURIComponent(club.id)}/edit`)}>
+                          Edit Club
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="sectionBlock">
             <div className="sectionTitle">Badges</div>
             <div className="badgeShelf">
               {badges.map((badge) => (
@@ -118,7 +185,7 @@ export const Profile: React.FC = () => {
                     <div className="profileListMain">
                       <div className="profileListName">{club.name}</div>
                       <div className="profileListMeta">
-                        {club.category} · {club.followerCount ?? 0} followers
+                        {club.category} | {club.followerCount ?? 0} followers
                       </div>
                     </div>
                     <button
@@ -151,7 +218,7 @@ export const Profile: React.FC = () => {
                     <div className="profileEventMain">
                       <div className="profileEventTitle">{event.title}</div>
                       <div className="profileEventMeta">
-                        {event.building} · {event.room} · {formatDayTime(event.startTime)}
+                        {event.building} | {event.room} | {formatDayTime(event.startTime)}
                       </div>
                     </div>
                     <div className="goingPill">{isEventGoing(event.id) ? "Going" : "Saved"}</div>

@@ -5,6 +5,7 @@ export type Building = {
   name: string;
   mapPosition?: { x: number; y: number };
   floors: number[];
+  todayEventsCount?: number;
 };
 
 export type Club = {
@@ -18,6 +19,11 @@ export type Club = {
   socialLink?: string;
   imageUrl?: string;
   followerCount?: number;
+  becauseYouLike?: string | null;
+  userRole?: "owner" | "admin" | "member" | null;
+  canManageEvents?: boolean;
+  canEditClub?: boolean;
+  activeEventCount?: number;
 };
 
 export type CreateClubPayload = {
@@ -33,7 +39,34 @@ export type CreateClubPayload = {
 export type ApiErrorPayload = {
   error?: string;
   details?: string;
-  fieldErrors?: Partial<Record<keyof CreateClubPayload, string>>;
+  fieldErrors?: Record<string, string>;
+};
+
+export type EventPayload = {
+  title: string;
+  description: string;
+  building: string;
+  floor: number | "";
+  room: string;
+  startTime: string;
+  endTime: string;
+  capacity: number | "";
+  foodAvailable: boolean;
+  foodType: string;
+  tags: string[];
+  imageUrl: string;
+};
+
+export type ClubMembership = {
+  id: string;
+  userId: string;
+  clubId: string;
+  role: "owner" | "admin" | "member";
+  createdAt: string;
+  name: string;
+  email?: string | null;
+  program?: string | null;
+  year?: string | null;
 };
 
 export type AuthFieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPassword" | "program" | "year", string>>;
@@ -44,6 +77,8 @@ export type AuthUser = {
   email?: string | null;
   program?: string | null;
   year?: string | null;
+  onboardingCompleted: boolean;
+  interests: string[];
   favoriteClubIds: string[];
   attendingEventIds: string[];
 };
@@ -114,6 +149,7 @@ export type EventModel = {
   id: string;
   title: string;
   clubId: string;
+  createdByUserId?: string | null;
   building: string;
   floor: number;
   room: string;
@@ -124,10 +160,14 @@ export type EventModel = {
   foodAvailable: boolean;
   foodType?: string | null;
   description: string;
+  imageUrl?: string;
+  status?: "active" | "cancelled";
+  isCancelled?: boolean;
   tags: string[];
   friendsGoing: string[];
   friendCount?: number;
   happeningNow?: boolean;
+  canManage?: boolean;
 };
 
 export type ActivityFeedItem = {
@@ -139,12 +179,26 @@ export type ActivityFeedItem = {
   payload: Record<string, string>;
 };
 
-export type NotificationItem = {
+export type DiscoveryNotification = {
   id: string;
   kind: "event_recommendation" | "friend_activity";
   title: string;
   subtitle: string;
   time: string;
+};
+
+export type NotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  isDismissed: boolean;
+  createdAt: string;
+  actorUserId?: string | null;
+  eventId?: string | null;
+  clubId?: string | null;
+  link?: string | null;
 };
 
 export type DiscoveryPayload = {
@@ -153,8 +207,23 @@ export type DiscoveryPayload = {
   recommendedClubs: Club[];
   suggestedFriends: FriendSearchResult[];
   activityFeed: ActivityFeedItem[];
-  notifications: NotificationItem[];
+  notifications: DiscoveryNotification[];
   interests: string[];
+  selectedInterests: string[];
+};
+
+export type SearchResultUser = FriendSearchResult;
+
+export type SearchResultEvent = EventModel & {
+  clubName: string;
+  buildingName: string;
+};
+
+export type SearchResponse = {
+  clubs: Club[];
+  events: SearchResultEvent[];
+  users: SearchResultUser[];
+  buildings: Building[];
 };
 
 export type ClubDetailPayload = {
@@ -163,6 +232,7 @@ export type ClubDetailPayload = {
   tags: string[];
   relatedClubs: Club[];
   friendFollowerCount: number;
+  memberships: ClubMembership[];
 };
 
 export type ScheduleClass = {
@@ -187,8 +257,16 @@ export type UserResponse = {
   program: string;
   email?: string | null;
   year?: string | null;
+  onboardingCompleted: boolean;
+  interests: string[];
   favoriteClubIds: string[];
   attendingEventIds: string[];
+};
+
+export type OnboardingPayload = {
+  interests: string[];
+  starterClubIds: string[];
+  starterFriendIds: string[];
 };
 
 const api = axios.create({
@@ -198,6 +276,11 @@ const api = axios.create({
 
 export async function getEvents(): Promise<EventModel[]> {
   const res = await api.get("/events");
+  return res.data;
+}
+
+export async function globalSearch(query: string): Promise<SearchResponse> {
+  const res = await api.get("/search", { params: { q: query } });
   return res.data;
 }
 
@@ -225,6 +308,21 @@ export async function getEvent(id: string): Promise<EventModel> {
   return res.data;
 }
 
+export async function createClubEvent(clubId: string, payload: EventPayload): Promise<EventModel> {
+  const res = await api.post(`/clubs/${encodeURIComponent(clubId)}/events`, payload);
+  return res.data;
+}
+
+export async function updateClubEvent(eventId: string, payload: EventPayload): Promise<EventModel> {
+  const res = await api.put(`/events/${encodeURIComponent(eventId)}`, payload);
+  return res.data;
+}
+
+export async function cancelClubEvent(eventId: string): Promise<EventModel> {
+  const res = await api.delete(`/events/${encodeURIComponent(eventId)}`);
+  return res.data;
+}
+
 export async function getClubs(): Promise<Club[]> {
   const res = await api.get("/clubs");
   return res.data;
@@ -237,6 +335,11 @@ export async function getClubDetail(clubId: string): Promise<ClubDetailPayload> 
 
 export async function createClub(payload: CreateClubPayload): Promise<Club> {
   const res = await api.post("/clubs", payload);
+  return res.data;
+}
+
+export async function updateClubDetails(clubId: string, payload: CreateClubPayload): Promise<Club> {
+  const res = await api.put(`/clubs/${encodeURIComponent(clubId)}`, payload);
   return res.data;
 }
 
@@ -289,6 +392,16 @@ export async function unfollowClub(clubId: string): Promise<{
 
 export async function getMyFollowedClubs(): Promise<Club[]> {
   const res = await api.get("/users/me/followed-clubs");
+  return res.data;
+}
+
+export async function getManagedClubs(): Promise<Club[]> {
+  const res = await api.get("/users/me/managed-clubs");
+  return res.data;
+}
+
+export async function getClubMemberships(clubId: string): Promise<ClubMembership[]> {
+  const res = await api.get(`/clubs/${encodeURIComponent(clubId)}/memberships`);
   return res.data;
 }
 
@@ -359,8 +472,66 @@ export async function getDiscovery(): Promise<DiscoveryPayload> {
   return res.data;
 }
 
+export async function getInterests(): Promise<string[]> {
+  const res = await api.get("/interests");
+  return res.data.interests;
+}
+
+export async function getMyInterests(): Promise<string[]> {
+  const res = await api.get("/users/me/interests");
+  return res.data.interests;
+}
+
+export async function saveMyInterests(interests: string[]): Promise<{
+  interests: string[];
+  user: AuthUser;
+}> {
+  const res = await api.post("/users/me/interests", { interests });
+  return res.data;
+}
+
+export async function completeOnboarding(payload: OnboardingPayload): Promise<{
+  ok: boolean;
+  interests: string[];
+  starterClubIds: string[];
+  starterFriendIds: string[];
+  user: AuthUser;
+}> {
+  const res = await api.post("/users/me/onboarding", payload);
+  return res.data;
+}
+
 export async function getNotifications(): Promise<NotificationItem[]> {
   const res = await api.get("/notifications");
+  return res.data;
+}
+
+export async function getUnreadNotificationCount(): Promise<{ count: number }> {
+  const res = await api.get("/notifications/unread-count");
+  return res.data;
+}
+
+export async function markNotificationRead(notificationId: string): Promise<{
+  notification: NotificationItem;
+  unreadCount: number;
+}> {
+  const res = await api.post(`/notifications/${encodeURIComponent(notificationId)}/read`);
+  return res.data;
+}
+
+export async function markAllNotificationsRead(): Promise<{
+  updatedCount: number;
+  unreadCount: number;
+}> {
+  const res = await api.post("/notifications/read-all");
+  return res.data;
+}
+
+export async function dismissNotification(notificationId: string): Promise<{
+  notification: NotificationItem;
+  unreadCount: number;
+}> {
+  const res = await api.post(`/notifications/${encodeURIComponent(notificationId)}/dismiss`);
   return res.data;
 }
 

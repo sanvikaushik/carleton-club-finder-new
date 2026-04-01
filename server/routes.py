@@ -11,9 +11,17 @@ from werkzeug.security import check_password_hash, generate_password_hash
 try:
     from .queries.auth_queries import create_auth_user, get_auth_user_by_email, get_auth_user_by_id
     from .queries.building_queries import get_all_buildings
-    from .queries.club_queries import create_club, get_all_clubs, set_club_favorite
+    from .queries.club_queries import create_club, get_all_clubs, get_club_by_id, get_club_follower_user_ids, set_club_favorite, update_club
     from .queries.discovery_queries import get_club_detail_bundle, get_discovery_bundle
-    from .queries.event_queries import get_all_events, get_event_by_id, set_event_attendance
+    from .queries.event_queries import (
+        cancel_event,
+        create_event,
+        get_all_events,
+        get_event_attendee_user_ids,
+        get_event_by_id,
+        set_event_attendance,
+        update_event,
+    )
     from .queries.friend_queries import (
         create_friend_request,
         get_friend_events_feed,
@@ -24,14 +32,44 @@ try:
         respond_to_friend_request,
         search_users_for_friendship,
     )
+    from .queries.interest_queries import (
+        get_interest_options,
+        get_user_interest_names,
+        replace_user_interests,
+        set_onboarding_completed,
+    )
+    from .queries.notification_queries import (
+        create_notification,
+        dismiss_notification,
+        get_unread_notification_count,
+        list_notifications_for_user,
+        mark_all_notifications_read,
+        mark_notification_read,
+    )
+    from .queries.organizer_queries import (
+        can_edit_club,
+        can_manage_club_events,
+        get_managed_clubs_for_user,
+        get_membership_role,
+        list_club_memberships,
+    )
+    from .queries.search_queries import search_everything
     from .queries.schedule_queries import get_schedule_for_user
     from .queries.user_queries import get_user_by_id
 except ImportError:
     from queries.auth_queries import create_auth_user, get_auth_user_by_email, get_auth_user_by_id
     from queries.building_queries import get_all_buildings
-    from queries.club_queries import create_club, get_all_clubs, set_club_favorite
+    from queries.club_queries import create_club, get_all_clubs, get_club_by_id, get_club_follower_user_ids, set_club_favorite, update_club
     from queries.discovery_queries import get_club_detail_bundle, get_discovery_bundle
-    from queries.event_queries import get_all_events, get_event_by_id, set_event_attendance
+    from queries.event_queries import (
+        cancel_event,
+        create_event,
+        get_all_events,
+        get_event_attendee_user_ids,
+        get_event_by_id,
+        set_event_attendance,
+        update_event,
+    )
     from queries.friend_queries import (
         create_friend_request,
         get_friend_events_feed,
@@ -42,6 +80,28 @@ except ImportError:
         respond_to_friend_request,
         search_users_for_friendship,
     )
+    from queries.interest_queries import (
+        get_interest_options,
+        get_user_interest_names,
+        replace_user_interests,
+        set_onboarding_completed,
+    )
+    from queries.notification_queries import (
+        create_notification,
+        dismiss_notification,
+        get_unread_notification_count,
+        list_notifications_for_user,
+        mark_all_notifications_read,
+        mark_notification_read,
+    )
+    from queries.organizer_queries import (
+        can_edit_club,
+        can_manage_club_events,
+        get_managed_clubs_for_user,
+        get_membership_role,
+        list_club_memberships,
+    )
+    from queries.search_queries import search_everything
     from queries.schedule_queries import get_schedule_for_user
     from queries.user_queries import get_user_by_id
 
@@ -56,7 +116,8 @@ def _localize_datetime(value: datetime) -> datetime:
 
 
 def _parse_iso_datetime(value: str) -> datetime:
-    return _localize_datetime(datetime.fromisoformat(value))
+    normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+    return _localize_datetime(datetime.fromisoformat(normalized))
 
 
 def _get_primary_user() -> dict[str, Any]:
@@ -95,6 +156,8 @@ def _serialize_auth_user(user: dict[str, Any]) -> dict[str, Any]:
         "email": user.get("email"),
         "program": user.get("program"),
         "year": user.get("year"),
+        "onboardingCompleted": bool(user.get("onboarding_completed", user.get("onboardingCompleted", True))),
+        "interests": user.get("interests", []),
         "favoriteClubIds": user.get("favoriteClubIds", []),
         "attendingEventIds": user.get("attendingEventIds", []),
     }
@@ -114,8 +177,34 @@ def _serialize_friend_summary(friend: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _serialize_notification(notification: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": notification["id"],
+        "type": notification["type"],
+        "title": notification["title"],
+        "message": notification["message"],
+        "isRead": bool(notification["is_read"]),
+        "isDismissed": bool(notification["is_dismissed"]),
+        "createdAt": notification["created_at"],
+        "actorUserId": notification.get("actor_user_id"),
+        "eventId": notification.get("event_id"),
+        "clubId": notification.get("club_id"),
+        "link": notification.get("link"),
+    }
+
+
+def _serialize_building_search_result(building: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": building["id"],
+        "name": building["name"],
+        "floors": building.get("floors", []),
+        "todayEventsCount": int(building.get("todayEventsCount") or 0),
+    }
+
+
 def _serialize_club(club: dict[str, Any], user: dict[str, Any] | None = None) -> dict[str, Any]:
     favorite_ids = set(user["favoriteClubIds"]) if user else set()
+    membership_role = get_membership_role(user.get("id") if user else None, club["id"])
     return {
         "id": club["id"],
         "name": club["name"],
@@ -127,6 +216,11 @@ def _serialize_club(club: dict[str, Any], user: dict[str, Any] | None = None) ->
         "socialLink": club.get("social_link") or "",
         "imageUrl": club.get("image_url") or "",
         "followerCount": int(club.get("follower_count") or 0),
+        "becauseYouLike": club.get("becauseYouLike"),
+        "userRole": membership_role,
+        "canManageEvents": membership_role in {"owner", "admin"},
+        "canEditClub": membership_role == "owner",
+        "activeEventCount": int(club.get("active_event_count") or 0),
     }
 
 
@@ -172,6 +266,113 @@ def _validate_create_club_payload(payload: dict[str, Any]) -> tuple[dict[str, st
 
     if normalized["socialLink"] and not _valid_url(normalized["socialLink"]):
         errors["socialLink"] = "Social link must be a valid http or https URL."
+
+    if normalized["imageUrl"] and not _valid_url(normalized["imageUrl"]):
+        errors["imageUrl"] = "Image URL must be a valid http or https URL."
+
+    return normalized, errors
+
+
+def _validate_event_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+    normalized = {
+        "title": str(payload.get("title", "")).strip(),
+        "description": str(payload.get("description", "")).strip(),
+        "building": str(payload.get("building", "")).strip(),
+        "room": str(payload.get("room", "")).strip(),
+        "floor": payload.get("floor"),
+        "startTime": str(payload.get("startTime", "")).strip(),
+        "endTime": str(payload.get("endTime", "")).strip(),
+        "capacity": payload.get("capacity"),
+        "foodAvailable": bool(payload.get("foodAvailable")),
+        "foodType": str(payload.get("foodType", "")).strip(),
+        "tags": payload.get("tags", []),
+        "imageUrl": str(payload.get("imageUrl", "")).strip(),
+    }
+    errors: dict[str, str] = {}
+
+    if len(normalized["title"]) < 3:
+        errors["title"] = "Event title must be at least 3 characters."
+    elif len(normalized["title"]) > 120:
+        errors["title"] = "Event title must be 120 characters or fewer."
+
+    if len(normalized["description"]) < 10:
+        errors["description"] = "Description must be at least 10 characters."
+    elif len(normalized["description"]) > 2000:
+        errors["description"] = "Description must be 2000 characters or fewer."
+
+    buildings = {building["id"]: building for building in get_all_buildings()}
+    building = buildings.get(normalized["building"])
+    if building is None:
+        errors["building"] = "Choose a valid campus building."
+
+    if len(normalized["room"]) < 1:
+        errors["room"] = "Room is required."
+    elif len(normalized["room"]) > 40:
+        errors["room"] = "Room must be 40 characters or fewer."
+
+    floors = building.get("floors", []) if building else []
+    floor_value = normalized["floor"]
+    if floor_value in {None, ""}:
+        normalized["floor"] = floors[0] if floors else 1
+    else:
+        try:
+            normalized["floor"] = int(floor_value)
+        except (TypeError, ValueError):
+            errors["floor"] = "Floor must be a number."
+        else:
+            if floors and normalized["floor"] not in floors:
+                errors["floor"] = "Choose a valid floor for this building."
+
+    if not normalized["startTime"]:
+        errors["startTime"] = "Start time is required."
+    if not normalized["endTime"]:
+        errors["endTime"] = "End time is required."
+    if normalized["startTime"] and normalized["endTime"]:
+        try:
+            start_time = _parse_iso_datetime(normalized["startTime"])
+            end_time = _parse_iso_datetime(normalized["endTime"])
+        except ValueError:
+            errors["startTime"] = "Enter valid start and end times."
+        else:
+            if start_time >= end_time:
+                errors["endTime"] = "End time must be after start time."
+
+    if normalized["capacity"] in {None, ""}:
+        normalized["capacity"] = 100
+    else:
+        try:
+            normalized["capacity"] = int(normalized["capacity"])
+        except (TypeError, ValueError):
+            errors["capacity"] = "Capacity must be a whole number."
+        else:
+            if normalized["capacity"] < 1 or normalized["capacity"] > 5000:
+                errors["capacity"] = "Capacity must be between 1 and 5000."
+
+    if not normalized["foodAvailable"]:
+        normalized["foodType"] = ""
+    elif len(normalized["foodType"]) > 80:
+        errors["foodType"] = "Food type must be 80 characters or fewer."
+
+    tags_value = normalized["tags"]
+    if isinstance(tags_value, str):
+        tag_candidates = [part.strip() for part in tags_value.split(",")]
+    elif isinstance(tags_value, list):
+        tag_candidates = [str(item).strip() for item in tags_value]
+    else:
+        tag_candidates = []
+        errors["tags"] = "Tags must be a list or comma-separated string."
+
+    normalized_tags = []
+    seen_tags = set()
+    for tag in tag_candidates:
+        if not tag:
+            continue
+        lowered = tag.lower()
+        if lowered in seen_tags:
+            continue
+        seen_tags.add(lowered)
+        normalized_tags.append(tag[:24])
+    normalized["tags"] = normalized_tags[:8]
 
     if normalized["imageUrl"] and not _valid_url(normalized["imageUrl"]):
         errors["imageUrl"] = "Image URL must be a valid http or https URL."
@@ -229,10 +430,13 @@ def _serialize_event(event: dict[str, Any], user: dict[str, Any] | None = None) 
     now = datetime.now().astimezone()
     start = _parse_iso_datetime(event["startTime"])
     end = _parse_iso_datetime(event["endTime"])
+    membership_role = get_membership_role(user.get("id") if user else None, event["clubId"])
+    status = event.get("status") or "active"
     return {
         "id": event["id"],
         "title": event["title"],
         "clubId": event["clubId"],
+        "createdByUserId": event.get("createdByUserId"),
         "building": event["building"],
         "floor": event["floor"],
         "room": event["room"],
@@ -243,11 +447,36 @@ def _serialize_event(event: dict[str, Any], user: dict[str, Any] | None = None) 
         "foodAvailable": event["foodAvailable"],
         "foodType": event["foodType"],
         "description": event["description"],
+        "imageUrl": event.get("imageUrl") or "",
+        "status": status,
+        "isCancelled": status == "cancelled",
         "tags": event["tags"],
         "friendsGoing": [attendee_id for attendee_id in attendee_ids if attendee_id in friend_ids],
         "friendCount": len([attendee_id for attendee_id in attendee_ids if attendee_id in friend_ids]),
-        "happeningNow": start <= now <= end,
+        "happeningNow": status == "active" and start <= now <= end,
+        "becauseYouLike": event.get("becauseYouLike"),
+        "canManage": membership_role in {"owner", "admin"},
     }
+
+
+def _validate_interest_names(value: Any) -> tuple[list[str], dict[str, str]]:
+    if not isinstance(value, list):
+        return [], {"interests": "Interests must be provided as a list."}
+
+    normalized = []
+    seen = set()
+    valid = set(get_interest_options())
+    for item in value:
+        name = str(item).strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        normalized.append(name)
+
+    invalid = [name for name in normalized if name not in valid]
+    if invalid:
+        return normalized, {"interests": "One or more selected interests are invalid."}
+    return normalized[:6], {}
 
 
 def _event_overlaps_schedule(event: dict[str, Any], schedule_classes: list[dict[str, Any]]) -> bool:
@@ -321,7 +550,7 @@ def api_events():
 
 @api_bp.route("/events/<event_id>", methods=["GET"])
 def api_event_by_id(event_id: str):
-    user = _get_primary_user()
+    user = _get_authenticated_user() or _get_primary_user()
     event = get_event_by_id(event_id)
     if event is None:
         return jsonify({"error": "Event not found"}), 404
@@ -333,10 +562,34 @@ def api_update_event_attendance(event_id: str):
     user = _get_primary_user()
     payload = request.get_json(silent=True) or {}
     attending = bool(payload.get("attending"))
+    was_attending = event_id in set(user.get("attendingEventIds", []))
+    existing_event = get_event_by_id(event_id)
+
+    if existing_event is None:
+        return jsonify({"error": "Event not found"}), 404
+    if (existing_event.get("status") or "active") != "active":
+        return jsonify({"error": "This event has been cancelled."}), 409
 
     attendance_count, attending_event_ids = set_event_attendance(user["id"], event_id, attending)
     if attendance_count is None:
         return jsonify({"error": "Event not found"}), 404
+
+    authenticated_user = _get_authenticated_user()
+    if authenticated_user is not None and authenticated_user["id"] == user["id"] and attending and not was_attending:
+        event = get_event_by_id(event_id)
+        if event is not None:
+            for friend in get_friends_for_user(user["id"]):
+                create_notification(
+                    user_id=friend["id"],
+                    notification_type="friend_activity",
+                    title=f"{user['name']} is going to {event['title']}",
+                    message=f"{user['name']} just joined {event['title']}.",
+                    actor_user_id=user["id"],
+                    event_id=event_id,
+                    club_id=event["clubId"],
+                    link=f"/event/{event_id}",
+                    dedupe_existing=True,
+                )
 
     return jsonify(
         {
@@ -350,7 +603,7 @@ def api_update_event_attendance(event_id: str):
 
 @api_bp.route("/clubs", methods=["GET"])
 def api_clubs():
-    user = _get_primary_user()
+    user = _get_authenticated_user() or _get_primary_user()
     return jsonify([_serialize_club(club, user) for club in get_all_clubs()])
 
 
@@ -361,6 +614,23 @@ def api_club_detail(club_id: str):
     if payload is None:
         return jsonify({"error": "Club not found"}), 404
 
+    memberships = []
+    if can_manage_club_events(user.get("id") if user else None, club_id) or can_edit_club(user.get("id") if user else None, club_id):
+        memberships = [
+            {
+                "id": membership["id"],
+                "userId": membership["user_id"],
+                "clubId": membership["club_id"],
+                "role": membership["role"],
+                "createdAt": membership["created_at"],
+                "name": membership["name"],
+                "email": membership.get("email"),
+                "program": membership.get("program"),
+                "year": membership.get("year"),
+            }
+            for membership in list_club_memberships(club_id)
+        ]
+
     return jsonify(
         {
             "club": _serialize_club(payload["club"], user),
@@ -368,6 +638,7 @@ def api_club_detail(club_id: str):
             "tags": payload["tags"],
             "relatedClubs": [_serialize_club(club, user) for club in payload["relatedClubs"]],
             "friendFollowerCount": payload["friendFollowerCount"],
+            "memberships": memberships,
         }
     )
 
@@ -392,15 +663,198 @@ def api_discover():
             "activityFeed": payload["activityFeed"],
             "notifications": payload["notifications"],
             "interests": payload["interests"],
+            "selectedInterests": payload.get("selectedInterests", []),
+        }
+    )
+
+
+@api_bp.route("/interests", methods=["GET"])
+def api_interests():
+    return jsonify({"interests": get_interest_options()})
+
+
+@api_bp.route("/users/me/interests", methods=["GET"])
+def api_my_interests():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    return jsonify({"interests": get_user_interest_names(user["id"])})
+
+
+@api_bp.route("/users/me/interests", methods=["POST"])
+def api_save_my_interests():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    normalized, field_errors = _validate_interest_names(payload.get("interests", []))
+    if field_errors:
+        return jsonify({"error": "Invalid interests", "fieldErrors": field_errors}), 400
+
+    saved = replace_user_interests(user["id"], normalized)
+    updated_user = get_user_by_id(user["id"])
+    return jsonify({"interests": saved, "user": _serialize_auth_user(updated_user)})
+
+
+@api_bp.route("/users/me/onboarding", methods=["POST"])
+def api_complete_onboarding():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    interest_names, field_errors = _validate_interest_names(payload.get("interests", []))
+    if field_errors:
+        return jsonify({"error": "Invalid onboarding data", "fieldErrors": field_errors}), 400
+
+    starter_club_ids = payload.get("starterClubIds", [])
+    if not isinstance(starter_club_ids, list):
+        return jsonify({"error": "Invalid onboarding data", "fieldErrors": {"starterClubIds": "Starter clubs must be a list."}}), 400
+
+    starter_friend_ids = payload.get("starterFriendIds", [])
+    if not isinstance(starter_friend_ids, list):
+        return jsonify({"error": "Invalid onboarding data", "fieldErrors": {"starterFriendIds": "Starter friends must be a list."}}), 400
+
+    valid_club_ids = {club["id"] for club in get_all_clubs()}
+    normalized_club_ids = []
+    for club_id in starter_club_ids[:6]:
+        club_id_str = str(club_id).strip()
+        if club_id_str in valid_club_ids and club_id_str not in normalized_club_ids:
+            normalized_club_ids.append(club_id_str)
+
+    replace_user_interests(user["id"], interest_names)
+    for club_id in normalized_club_ids:
+        set_club_favorite(user["id"], club_id, True)
+
+    sent_friend_requests = []
+    for friend_id in starter_friend_ids[:4]:
+        friend_id_str = str(friend_id).strip()
+        if not friend_id_str or friend_id_str == user["id"]:
+            continue
+        try:
+            created_request = create_friend_request(user["id"], friend_id_str)
+        except (LookupError, ValueError):
+            continue
+
+        receiver_user = get_user_by_id(friend_id_str)
+        if receiver_user is not None:
+            create_notification(
+                user_id=friend_id_str,
+                notification_type="friend_request",
+                title=f"{user['name']} sent you a friend request",
+                message=f"Open Friends to accept or decline {user['name']}'s request.",
+                actor_user_id=user["id"],
+                link="/friends",
+                dedupe_existing=True,
+            )
+        sent_friend_requests.append(created_request["receiverUserId"])
+
+    set_onboarding_completed(user["id"], True)
+    updated_user = get_user_by_id(user["id"])
+    return jsonify(
+        {
+            "ok": True,
+            "interests": interest_names,
+            "starterClubIds": normalized_club_ids,
+            "starterFriendIds": sent_friend_requests,
+            "user": _serialize_auth_user(updated_user),
+        }
+    )
+
+
+@api_bp.route("/search", methods=["GET"])
+def api_search():
+    query = str(request.args.get("q", "")).strip()
+    auth_user = _get_authenticated_user()
+    primary_user = auth_user or _get_primary_user()
+    payload = search_everything(query, viewer_id=auth_user["id"] if auth_user else None)
+
+    return jsonify(
+        {
+            "clubs": [_serialize_club(club, primary_user) for club in payload["clubs"]],
+            "events": [
+                {
+                    **_serialize_event(event, primary_user),
+                    "clubName": event.get("clubName") or "",
+                    "buildingName": event.get("buildingName") or event.get("building"),
+                }
+                for event in payload["events"]
+            ],
+            "users": [
+                {
+                    **_serialize_friend_summary(user),
+                    "status": user.get("status", "none"),
+                    "requestId": user.get("requestId"),
+                }
+                for user in payload["users"]
+            ],
+            "buildings": [_serialize_building_search_result(building) for building in payload["buildings"]],
         }
     )
 
 
 @api_bp.route("/notifications", methods=["GET"])
 def api_notifications():
-    user = _get_authenticated_user() or _get_primary_user()
-    payload = get_discovery_bundle(user["id"])
-    return jsonify(payload["notifications"])
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    include_dismissed = _truthy(request.args.get("include_dismissed"))
+    notifications = list_notifications_for_user(user["id"], include_dismissed=include_dismissed)
+    return jsonify([_serialize_notification(notification) for notification in notifications])
+
+
+@api_bp.route("/notifications/unread-count", methods=["GET"])
+def api_notifications_unread_count():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    return jsonify({"count": get_unread_notification_count(user["id"])})
+
+
+@api_bp.route("/notifications/<notification_id>/read", methods=["POST"])
+def api_notification_mark_read(notification_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    updated = mark_notification_read(user["id"], notification_id)
+    if updated is None:
+        return jsonify({"error": "Notification not found"}), 404
+
+    return jsonify({"notification": _serialize_notification(updated), "unreadCount": get_unread_notification_count(user["id"])})
+
+
+@api_bp.route("/notifications/read-all", methods=["POST"])
+def api_notifications_mark_all_read():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    updated_count = mark_all_notifications_read(user["id"])
+    return jsonify({"updatedCount": updated_count, "unreadCount": get_unread_notification_count(user["id"])})
+
+
+@api_bp.route("/notifications/<notification_id>/dismiss", methods=["POST"])
+def api_notification_dismiss(notification_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    updated = dismiss_notification(user["id"], notification_id)
+    if updated is None:
+        return jsonify({"error": "Notification not found"}), 404
+
+    return jsonify({"notification": _serialize_notification(updated), "unreadCount": get_unread_notification_count(user["id"])})
 
 
 @api_bp.route("/auth/signup", methods=["POST"])
@@ -469,7 +923,8 @@ def api_auth_me():
 
 @api_bp.route("/clubs", methods=["POST"])
 def api_create_club():
-    user = _get_primary_user()
+    authenticated_user = _get_authenticated_user()
+    user = authenticated_user or _get_primary_user()
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
@@ -493,8 +948,237 @@ def api_create_club():
         contact_email=normalized["contactEmail"],
         social_link=normalized["socialLink"] or None,
         image_url=normalized["imageUrl"] or None,
+        creator_user_id=authenticated_user["id"] if authenticated_user else None,
     )
     return jsonify(_serialize_club(created, user)), 201
+
+
+@api_bp.route("/users/me/managed-clubs", methods=["GET"])
+def api_managed_clubs():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    managed_clubs = get_managed_clubs_for_user(user["id"])
+    return jsonify([_serialize_club(club, user) for club in managed_clubs])
+
+
+@api_bp.route("/clubs/<club_id>/memberships", methods=["GET"])
+def api_club_memberships(club_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    if get_club_by_id(club_id) is None:
+        return jsonify({"error": "Club not found"}), 404
+    if not (can_manage_club_events(user["id"], club_id) or can_edit_club(user["id"], club_id)):
+        return jsonify({"error": "You do not have permission to view memberships for this club."}), 403
+
+    memberships = list_club_memberships(club_id)
+    return jsonify(
+        [
+            {
+                "id": membership["id"],
+                "userId": membership["user_id"],
+                "clubId": membership["club_id"],
+                "role": membership["role"],
+                "createdAt": membership["created_at"],
+                "name": membership["name"],
+                "email": membership.get("email"),
+                "program": membership.get("program"),
+                "year": membership.get("year"),
+            }
+            for membership in memberships
+        ]
+    )
+
+
+@api_bp.route("/clubs/<club_id>", methods=["PUT"])
+def api_update_club(club_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    current_club = get_club_by_id(club_id)
+    if current_club is None:
+        return jsonify({"error": "Club not found"}), 404
+    if not can_edit_club(user["id"], club_id):
+        return jsonify({"error": "You do not have permission to edit this club."}), 403
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    normalized, field_errors = _validate_create_club_payload(payload)
+    if field_errors:
+        return jsonify({"error": "Invalid club data", "fieldErrors": field_errors}), 400
+
+    duplicate = next(
+        (
+            club
+            for club in get_all_clubs()
+            if club["id"] != club_id and club["name"].casefold() == normalized["name"].casefold()
+        ),
+        None,
+    )
+    if duplicate is not None:
+        return jsonify({
+            "error": "Invalid club data",
+            "fieldErrors": {"name": "A club with this name already exists."},
+        }), 409
+
+    updated = update_club(
+        club_id,
+        name=normalized["name"],
+        category=normalized["category"],
+        description=normalized["description"],
+        meeting_location=normalized["meetingLocation"],
+        contact_email=normalized["contactEmail"],
+        social_link=normalized["socialLink"] or None,
+        image_url=normalized["imageUrl"] or None,
+    )
+    return jsonify(_serialize_club(updated, user))
+
+
+@api_bp.route("/clubs/<club_id>/events", methods=["POST"])
+def api_create_event(club_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    club = get_club_by_id(club_id)
+    if club is None:
+        return jsonify({"error": "Club not found"}), 404
+    if not can_manage_club_events(user["id"], club_id):
+        return jsonify({"error": "You do not have permission to create events for this club."}), 403
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    normalized, field_errors = _validate_event_payload(payload)
+    if field_errors:
+        return jsonify({"error": "Invalid event data", "fieldErrors": field_errors}), 400
+
+    created = create_event(
+        title=normalized["title"],
+        club_id=club_id,
+        created_by_user_id=user["id"],
+        building_id=normalized["building"],
+        floor=normalized["floor"],
+        room=normalized["room"],
+        start_time=normalized["startTime"],
+        end_time=normalized["endTime"],
+        capacity=normalized["capacity"],
+        food_available=normalized["foodAvailable"],
+        food_type=normalized["foodType"] or None,
+        description=normalized["description"],
+        image_url=normalized["imageUrl"] or None,
+        tags=normalized["tags"],
+    )
+
+    for follower_user_id in get_club_follower_user_ids(club_id):
+        if follower_user_id == user["id"]:
+            continue
+        create_notification(
+            user_id=follower_user_id,
+            notification_type="club_event",
+            title=f"{club['name']} posted {created['title']}",
+            message=f"A new event from {club['name']} is now live.",
+            actor_user_id=user["id"],
+            event_id=created["id"],
+            club_id=club_id,
+            link=f"/event/{created['id']}",
+        )
+
+    return jsonify(_serialize_event(created, user)), 201
+
+
+@api_bp.route("/events/<event_id>", methods=["PUT"])
+def api_update_managed_event(event_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    existing_event = get_event_by_id(event_id)
+    if existing_event is None:
+        return jsonify({"error": "Event not found"}), 404
+    if not can_manage_club_events(user["id"], existing_event["clubId"]):
+        return jsonify({"error": "You do not have permission to edit this event."}), 403
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    normalized, field_errors = _validate_event_payload(payload)
+    if field_errors:
+        return jsonify({"error": "Invalid event data", "fieldErrors": field_errors}), 400
+
+    updated = update_event(
+        event_id,
+        title=normalized["title"],
+        building_id=normalized["building"],
+        floor=normalized["floor"],
+        room=normalized["room"],
+        start_time=normalized["startTime"],
+        end_time=normalized["endTime"],
+        capacity=normalized["capacity"],
+        food_available=normalized["foodAvailable"],
+        food_type=normalized["foodType"] or None,
+        description=normalized["description"],
+        image_url=normalized["imageUrl"] or None,
+        tags=normalized["tags"],
+    )
+    if updated is None:
+        return jsonify({"error": "Event not found"}), 404
+
+    club = get_club_by_id(updated["clubId"])
+    for attendee_user_id in get_event_attendee_user_ids(event_id):
+        if attendee_user_id == user["id"]:
+            continue
+        create_notification(
+            user_id=attendee_user_id,
+            notification_type="event_update",
+            title=f"{updated['title']} was updated",
+            message=f"{club['name'] if club else 'This club'} updated an event you are attending.",
+            actor_user_id=user["id"],
+            event_id=event_id,
+            club_id=updated["clubId"],
+            link=f"/event/{event_id}",
+        )
+
+    return jsonify(_serialize_event(updated, user))
+
+
+@api_bp.route("/events/<event_id>", methods=["DELETE"])
+def api_cancel_managed_event(event_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    existing_event = get_event_by_id(event_id)
+    if existing_event is None:
+        return jsonify({"error": "Event not found"}), 404
+    if not can_manage_club_events(user["id"], existing_event["clubId"]):
+        return jsonify({"error": "You do not have permission to cancel this event."}), 403
+
+    cancelled = cancel_event(event_id)
+    if cancelled is None:
+        return jsonify({"error": "Event not found"}), 404
+
+    club = get_club_by_id(cancelled["clubId"])
+    for attendee_user_id in get_event_attendee_user_ids(event_id):
+        if attendee_user_id == user["id"]:
+            continue
+        create_notification(
+            user_id=attendee_user_id,
+            notification_type="event_cancelled",
+            title=f"{cancelled['title']} was cancelled",
+            message=f"{club['name'] if club else 'A club'} cancelled an event you planned to attend.",
+            actor_user_id=user["id"],
+            event_id=event_id,
+            club_id=cancelled["clubId"],
+            link=f"/event/{event_id}",
+        )
+
+    return jsonify(_serialize_event(cancelled, user))
 
 
 @api_bp.route("/clubs/<club_id>/favorite", methods=["PUT"])
@@ -638,6 +1322,18 @@ def api_send_friend_request():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 409
 
+    receiver_user = get_user_by_id(receiver_user_id)
+    if receiver_user is not None:
+        create_notification(
+            user_id=receiver_user_id,
+            notification_type="friend_request",
+            title=f"{user['name']} sent you a friend request",
+            message=f"Open Friends to accept or decline {user['name']}'s request.",
+            actor_user_id=user["id"],
+            link="/friends",
+            dedupe_existing=True,
+        )
+
     return jsonify(
         {
             "id": created_request["id"],
@@ -663,6 +1359,17 @@ def api_accept_friend_request(request_id: str):
 
     if result is None:
         return jsonify({"error": "Friend request not found"}), 404
+
+    if result.get("user"):
+        create_notification(
+            user_id=result["user"]["id"],
+            notification_type="friend_accept",
+            title=f"{user['name']} accepted your friend request",
+            message=f"You are now friends with {user['name']}.",
+            actor_user_id=user["id"],
+            link="/friends",
+            dedupe_existing=True,
+        )
 
     return jsonify(
         {

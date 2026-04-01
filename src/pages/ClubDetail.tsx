@@ -59,7 +59,7 @@ export const ClubDetail: React.FC = () => {
               <div>
                 <div className="detailTitle">{payload.club.name}</div>
                 <div className="detailClub">
-                  {payload.club.category} · {payload.club.followerCount ?? 0} followers
+                  {payload.club.category} | {payload.club.followerCount ?? 0} followers
                 </div>
               </div>
               <button
@@ -91,8 +91,43 @@ export const ClubDetail: React.FC = () => {
               <div className="socialBadge">{payload.upcomingEvents.length} upcoming</div>
               {payload.friendFollowerCount > 0 ? <div className="socialBadge subtle">{payload.friendFollowerCount} friends follow</div> : null}
               {payload.club.meetingLocation ? <div className="socialBadge subtle">{payload.club.meetingLocation}</div> : null}
+              {payload.club.userRole ? <div className="socialBadge subtle">{payload.club.userRole}</div> : null}
             </div>
+
+            {payload.club.canManageEvents || payload.club.canEditClub ? (
+              <div className="organizerActionRow">
+                {payload.club.canManageEvents ? (
+                  <button type="button" className="secondaryBtn organizerActionBtn" onClick={() => navigate(`/clubs/${encodeURIComponent(payload.club.id)}/events/create`)}>
+                    Create Event
+                  </button>
+                ) : null}
+                {payload.club.canEditClub ? (
+                  <button type="button" className="secondaryBtn organizerActionBtn" onClick={() => navigate(`/clubs/${encodeURIComponent(payload.club.id)}/edit`)}>
+                    Edit Club
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
+
+          {payload.memberships.length > 0 ? (
+            <div className="sectionBlock">
+              <div className="sectionTitle">Organizer Team</div>
+              <div className="organizerMembershipList">
+                {payload.memberships.map((membership) => (
+                  <div key={membership.id} className="profileListRow">
+                    <div className="profileListMain">
+                      <div className="profileListName">{membership.name}</div>
+                      <div className="profileListMeta">
+                        {[membership.role, membership.program, membership.year].filter(Boolean).join(" | ")}
+                      </div>
+                    </div>
+                    <div className="socialBadge subtle">{membership.role}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="sectionBlock">
             <div className="sectionTitle">Upcoming Events</div>
@@ -101,15 +136,23 @@ export const ClubDetail: React.FC = () => {
             ) : (
               <div className="stack">
                 {payload.upcomingEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    clubName={payload.club.name}
-                    friends={[]}
-                    isGoing={isEventGoing(event.id)}
-                    onToggleGoing={() => toggleGoingEvent(event.id)}
-                    onOpen={() => navigate(`/event/${encodeURIComponent(event.id)}`)}
-                  />
+                  <div key={event.id} className="organizerEventCardWrap">
+                    <EventCard
+                      event={event}
+                      clubName={payload.club.name}
+                      friends={[]}
+                      isGoing={isEventGoing(event.id)}
+                      onToggleGoing={() => toggleGoingEvent(event.id)}
+                      onOpen={() => navigate(`/event/${encodeURIComponent(event.id)}`)}
+                    />
+                    {payload.club.canManageEvents ? (
+                      <div className="inlineActionRow">
+                        <button type="button" className="secondaryBtn organizerActionBtn" onClick={() => navigate(`/events/${encodeURIComponent(event.id)}/edit`)}>
+                          Edit Event
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             )}

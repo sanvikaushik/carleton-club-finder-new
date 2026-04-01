@@ -3,6 +3,7 @@ import {
   AuthUser,
   followClub,
   getAuthMe,
+  getUnreadNotificationCount,
   getUser,
   logIn,
   logOut,
@@ -25,6 +26,9 @@ type AppStateContextValue = {
   authUser: AuthUser | null;
   authLoaded: boolean;
   isAuthenticated: boolean;
+  unreadNotificationCount: number;
+  refreshUnreadNotificationCount: () => Promise<void>;
+  setUnreadNotificationCount: (count: number) => void;
   refreshSessionState: () => Promise<void>;
   signUpUser: (payload: SignUpPayload) => Promise<AuthUser>;
   logInUser: (payload: LoginPayload) => Promise<AuthUser>;
@@ -65,6 +69,7 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
   const [user, setUser] = useState<UserResponse | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const [selectedTab, setSelectedTab] = useState<TabKey>("home");
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
@@ -77,6 +82,16 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
   const [favoriteClubIds, setFavoriteClubIds] = useState<Set<string>>(new Set());
   const [goingEventIds, setGoingEventIds] = useState<Set<string>>(new Set());
 
+  const refreshUnreadNotificationCount = async () => {
+    const sessionUser = await getAuthMe();
+    if (!sessionUser) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+    const response = await getUnreadNotificationCount();
+    setUnreadNotificationCount(response.count);
+  };
+
   const refreshSessionState = async () => {
     const [sessionUser, profileUser] = await Promise.all([getAuthMe(), getUser()]);
     setAuthUser(sessionUser);
@@ -84,6 +99,12 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
     setUser(profileUser);
     setFavoriteClubIds(new Set(profileUser.favoriteClubIds));
     setGoingEventIds(new Set(profileUser.attendingEventIds));
+    if (sessionUser) {
+      const unread = await getUnreadNotificationCount();
+      setUnreadNotificationCount(unread.count);
+    } else {
+      setUnreadNotificationCount(0);
+    }
     setUserLoaded(true);
   };
 
@@ -99,10 +120,18 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
         setUser(profileUser);
         setFavoriteClubIds(new Set(profileUser.favoriteClubIds));
         setGoingEventIds(new Set(profileUser.attendingEventIds));
+        if (sessionUser) {
+          const unread = await getUnreadNotificationCount();
+          if (cancelled) return;
+          setUnreadNotificationCount(unread.count);
+        } else {
+          setUnreadNotificationCount(0);
+        }
         setUserLoaded(true);
       } catch {
         if (cancelled) return;
         setAuthUser(null);
+        setUnreadNotificationCount(0);
         setAuthLoaded(true);
         setUserLoaded(true);
       }
@@ -114,6 +143,25 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
     };
   }, []);
 
+  useEffect(() => {
+    if (!authUser) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void getUnreadNotificationCount()
+        .then((response) => {
+          setUnreadNotificationCount(response.count);
+        })
+        .catch(() => {});
+    }, 30000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [authUser]);
+
   const value = useMemo<AppStateContextValue>(
     () => ({
       user,
@@ -121,6 +169,9 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
       authUser,
       authLoaded,
       isAuthenticated: Boolean(authUser),
+      unreadNotificationCount,
+      refreshUnreadNotificationCount,
+      setUnreadNotificationCount,
       refreshSessionState,
       signUpUser: async (payload) => {
         const signedUpUser = await signUp(payload);
@@ -221,6 +272,7 @@ export const AppStateProvider: React.FC<React.PropsWithChildren> = ({ children }
       userLoaded,
       authUser,
       authLoaded,
+      unreadNotificationCount,
       selectedTab,
       selectedBuildingId,
       selectedEventId,

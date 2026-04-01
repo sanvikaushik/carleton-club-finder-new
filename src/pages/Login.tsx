@@ -36,8 +36,8 @@ export const Login: React.FC = () => {
     setSubmitError("");
     setSubmitState("loading");
     try {
-      await logInUser(form);
-      navigate("/profile");
+      const user = await logInUser(form);
+      navigate(user.onboardingCompleted ? "/profile" : "/onboarding");
     } catch (error) {
       if (axios.isAxiosError<{ error?: string; fieldErrors?: Partial<Record<keyof LoginPayload, string>> }>(error)) {
         setFieldErrors(error.response?.data?.fieldErrors ?? {});

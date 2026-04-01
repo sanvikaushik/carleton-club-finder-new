@@ -12,7 +12,7 @@ def get_auth_user_by_email(email: str) -> dict | None:
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, name, email, password_hash, program, year, created_at
+            SELECT id, name, email, password_hash, program, year, onboarding_completed, created_at
             FROM users
             WHERE lower(email) = lower(?);
             """,
@@ -25,7 +25,7 @@ def get_auth_user_by_id(user_id: str) -> dict | None:
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, name, email, password_hash, program, year, created_at
+            SELECT id, name, email, password_hash, program, year, onboarding_completed, created_at
             FROM users
             WHERE id = ?;
             """,
@@ -39,8 +39,8 @@ def create_auth_user(*, full_name: str, email: str, password_hash: str, program:
     with get_connection() as connection:
         connection.execute(
             """
-            INSERT INTO users (id, name, email, password_hash, program, year, is_friend_profile)
-            VALUES (?, ?, ?, ?, ?, ?, 0);
+            INSERT INTO users (id, name, email, password_hash, program, year, onboarding_completed, is_friend_profile)
+            VALUES (?, ?, ?, ?, ?, ?, 0, 0);
             """,
             (user_id, full_name, email.lower(), password_hash, program, year),
         )
@@ -48,11 +48,10 @@ def create_auth_user(*, full_name: str, email: str, password_hash: str, program:
 
         row = connection.execute(
             """
-            SELECT id, name, email, program, year, created_at
+            SELECT id, name, email, program, year, onboarding_completed, created_at
             FROM users
             WHERE id = ?;
             """,
             (user_id,),
         ).fetchone()
     return dict(row)
-

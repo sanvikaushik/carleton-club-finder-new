@@ -12,11 +12,13 @@ try:
     from .club_queries import get_all_clubs, get_club_by_id, get_club_tags
     from .event_queries import get_all_events
     from .friend_queries import get_friend_events_feed, get_friends_for_user, search_users_for_friendship
+    from .interest_queries import get_interest_keywords, get_user_interest_names
     from .user_queries import get_user_by_id
 except ImportError:
     from queries.club_queries import get_all_clubs, get_club_by_id, get_club_tags
     from queries.event_queries import get_all_events
     from queries.friend_queries import get_friend_events_feed, get_friends_for_user, search_users_for_friendship
+    from queries.interest_queries import get_interest_keywords, get_user_interest_names
     from queries.user_queries import get_user_by_id
 
 
@@ -84,22 +86,69 @@ def _derive_user_interests(user_id: str, events: list[dict], clubs: list[dict]) 
             counter.update(event.get("tags", []))
             counter.update(event.get("tags", []))
 
-    return [item for item, _ in counter.most_common(6)]
+    persistent = get_user_interest_names(user_id)
+    inferred = [item for item, _ in counter.most_common(6)]
+
+    merged = []
+    seen = set()
+    for item in [*persistent, *inferred]:
+        if item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
 
 
-def _score_event(event: dict, *, favorite_club_ids: set[str], interest_tags: set[str], friend_count: int, now: datetime) -> float:
+def _interest_match_score(selected_interests: set[str], *values: str) -> tuple[int, str | None]:
+    if not selected_interests:
+        return 0, None
+
+    keywords_by_interest = get_interest_keywords()
+    haystack = " ".join(value.lower() for value in values if value)
+    best_label = None
+    best_score = 0
+    for interest_name in selected_interests:
+        keywords = keywords_by_interest.get(interest_name, set())
+        interest_score = 0
+        if interest_name.lower() in haystack:
+            interest_score += 6
+        for keyword in keywords:
+            if keyword in haystack:
+                interest_score += 2
+        if interest_score > best_score:
+            best_score = interest_score
+            best_label = interest_name
+    return best_score, best_label
+
+
+def _score_event(
+    event: dict,
+    *,
+    favorite_club_ids: set[str],
+    interest_tags: set[str],
+    selected_interests: set[str],
+    friend_count: int,
+    now: datetime,
+) -> tuple[float, str | None]:
     start = _parse_iso(event["startTime"])
     end = _parse_iso(event["endTime"])
     score = 0.0
 
     if end < now - timedelta(hours=6):
-        return -999.0
+        return -999.0, None
 
     if event["clubId"] in favorite_club_ids:
         score += 6
 
     score += min(friend_count * 3, 9)
     score += min(len(interest_tags.intersection(set(event.get("tags", [])))) * 2, 8)
+    interest_score, because_you_like = _interest_match_score(
+        selected_interests,
+        event["title"],
+        event["description"],
+        " ".join(event.get("tags", [])),
+    )
+    score += min(interest_score, 10)
 
     if start <= now <= end:
         score += 8
@@ -112,7 +161,7 @@ def _score_event(event: dict, *, favorite_club_ids: set[str], interest_tags: set
 
     crowd_ratio = (event["attendanceCount"] / event["capacity"]) if event.get("capacity") else 0
     score += min(crowd_ratio * 4, 4)
-    return score
+    return score, because_you_like
 
 
 def get_discovery_bundle(user_id: str) -> dict:
@@ -138,6 +187,7 @@ def get_discovery_bundle(user_id: str) -> dict:
     favorite_club_ids = set(user.get("favoriteClubIds", []))
     interest_list = _derive_user_interests(user_id, events, clubs)
     interest_tags = set(interest_list)
+    selected_interest_names = set(get_user_interest_names(user_id))
 
     friend_counts_by_event: dict[str, int] = defaultdict(int)
     for friend in friends:
@@ -151,6 +201,7 @@ def get_discovery_bundle(user_id: str) -> dict:
                     event,
                     favorite_club_ids=favorite_club_ids,
                     interest_tags=interest_tags,
+                    selected_interests=selected_interest_names,
                     friend_count=friend_counts_by_event.get(event["id"], 0),
                     now=now,
                 ),
@@ -158,10 +209,17 @@ def get_discovery_bundle(user_id: str) -> dict:
             )
             for event in events
         ),
-        key=lambda item: item[0],
+        key=lambda item: item[0][0],
         reverse=True,
     )
-    for_you_events = [event for score, event in scored_events if score > -100][:4]
+    for_you_events = []
+    for score_and_reason, event in scored_events:
+        score, because_you_like = score_and_reason
+        if score <= -100:
+            continue
+        for_you_events.append({**event, "becauseYouLike": because_you_like})
+        if len(for_you_events) == 4:
+            break
 
     trending_events = sorted(
         events,
@@ -174,16 +232,27 @@ def get_discovery_bundle(user_id: str) -> dict:
     )[:4]
 
     friend_follow_counts: Counter[str] = Counter(row["club_id"] for row in friend_follow_rows)
-    recommended_clubs = sorted(
-        clubs,
-        key=lambda club: (
-            friend_follow_counts.get(club["id"], 0) * 4,
-            4 if club["category"].lower() in interest_tags else 0,
-            club.get("follower_count", 0),
-        ),
-        reverse=True,
-    )
-    recommended_clubs = [club for club in recommended_clubs if club["id"] not in favorite_club_ids][:4]
+    scored_clubs = []
+    for club in clubs:
+        interest_score, because_you_like = _interest_match_score(
+            selected_interest_names,
+            club["name"],
+            club["category"],
+            club["description"],
+        )
+        score = friend_follow_counts.get(club["id"], 0) * 4
+        score += 4 if club["category"].lower() in interest_tags else 0
+        score += min(interest_score, 10)
+        score += club.get("follower_count", 0)
+        scored_clubs.append((score, because_you_like, club))
+    scored_clubs.sort(key=lambda item: item[0], reverse=True)
+    recommended_clubs = []
+    for _, because_you_like, club in scored_clubs:
+        if club["id"] in favorite_club_ids:
+            continue
+        recommended_clubs.append({**club, "becauseYouLike": because_you_like})
+        if len(recommended_clubs) == 4:
+            break
 
     suggested_friends = [
         result
@@ -251,6 +320,7 @@ def get_discovery_bundle(user_id: str) -> dict:
         "activityFeed": activity_feed,
         "notifications": notifications,
         "interests": interest_list,
+        "selectedInterests": list(selected_interest_names),
     }
 
 

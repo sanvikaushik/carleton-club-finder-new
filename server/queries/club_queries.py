@@ -42,10 +42,37 @@ def get_all_clubs() -> list[dict]:
 
 
 def get_club_by_id(club_id: str) -> dict | None:
-    for club in get_all_clubs():
-        if club["id"] == club_id:
-            return club
-    return None
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT
+                c.id,
+                c.name,
+                c.category,
+                c.description,
+                c.meeting_location,
+                c.contact_email,
+                c.social_link,
+                c.image_url,
+                c.created_at,
+                COUNT(f.user_id) AS follower_count
+            FROM clubs c
+            LEFT JOIN favorites f ON f.club_id = c.id
+            WHERE c.id = ?
+            GROUP BY
+                c.id,
+                c.name,
+                c.category,
+                c.description,
+                c.meeting_location,
+                c.contact_email,
+                c.social_link,
+                c.image_url,
+                c.created_at;
+            """,
+            (club_id,),
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def get_club_tags(club_id: str, limit: int = 5) -> list[str]:
@@ -56,6 +83,7 @@ def get_club_tags(club_id: str, limit: int = 5) -> list[str]:
             FROM event_tags et
             JOIN events e ON e.id = et.event_id
             WHERE e.club_id = ?
+              AND COALESCE(e.status, 'active') = 'active'
             GROUP BY et.value
             ORDER BY uses DESC, et.value ASC
             LIMIT ?;
@@ -101,6 +129,7 @@ def create_club(
     contact_email: str,
     social_link: str | None,
     image_url: str | None,
+    creator_user_id: str | None = None,
 ) -> dict:
     with get_connection() as connection:
         club_id = _generate_unique_club_id(connection, name)
@@ -131,37 +160,58 @@ def create_club(
         )
         connection.commit()
 
-        row = connection.execute(
+    if creator_user_id:
+        try:
+            from .organizer_queries import upsert_club_membership
+        except ImportError:
+            from queries.organizer_queries import upsert_club_membership
+
+        upsert_club_membership(creator_user_id, club_id, "owner")
+
+    row = get_club_by_id(club_id)
+    return row or {}
+
+
+def update_club(
+    club_id: str,
+    *,
+    name: str,
+    category: str,
+    description: str,
+    meeting_location: str,
+    contact_email: str,
+    social_link: str | None,
+    image_url: str | None,
+) -> dict | None:
+    with get_connection() as connection:
+        existing = connection.execute(
             """
-            SELECT
-                c.id,
-                c.name,
-                c.category,
-                c.description,
-                c.meeting_location,
-                c.contact_email,
-                c.social_link,
-                c.image_url,
-                c.created_at,
-                COUNT(f.user_id) AS follower_count
-            FROM clubs c
-            LEFT JOIN favorites f ON f.club_id = c.id
-            WHERE c.id = ?
-            GROUP BY
-                c.id,
-                c.name,
-                c.category,
-                c.description,
-                c.meeting_location,
-                c.contact_email,
-                c.social_link,
-                c.image_url,
-                c.created_at;
+            SELECT id
+            FROM clubs
+            WHERE id = ?;
             """,
             (club_id,),
         ).fetchone()
+        if existing is None:
+            return None
 
-    return dict(row) if row else {}
+        connection.execute(
+            """
+            UPDATE clubs
+            SET
+                name = ?,
+                category = ?,
+                description = ?,
+                meeting_location = ?,
+                contact_email = ?,
+                social_link = ?,
+                image_url = ?
+            WHERE id = ?;
+            """,
+            (name, category, description, meeting_location, contact_email, social_link, image_url, club_id),
+        )
+        connection.commit()
+    return get_club_by_id(club_id)
 
 
 def get_favorite_club_ids(user_id: str) -> list[str]:
@@ -176,6 +226,20 @@ def get_favorite_club_ids(user_id: str) -> list[str]:
             (user_id,),
         ).fetchall()
     return [row["club_id"] for row in rows]
+
+
+def get_club_follower_user_ids(club_id: str) -> list[str]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT user_id
+            FROM favorites
+            WHERE club_id = ?
+            ORDER BY followed_at ASC, user_id ASC;
+            """,
+            (club_id,),
+        ).fetchall()
+    return [row["user_id"] for row in rows]
 
 
 def set_club_favorite(user_id: str, club_id: str, favorite: bool) -> list[str]:

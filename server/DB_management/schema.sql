@@ -1,7 +1,10 @@
 DROP TABLE IF EXISTS event_attendees;
 DROP TABLE IF EXISTS event_tags;
+DROP TABLE IF EXISTS club_memberships;
+DROP TABLE IF EXISTS user_interests;
 DROP TABLE IF EXISTS schedule_classes;
 DROP TABLE IF EXISTS favorites;
+DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS friend_requests;
 DROP TABLE IF EXISTS friends;
 DROP TABLE IF EXISTS building_floors;
@@ -17,6 +20,7 @@ CREATE TABLE users (
     year TEXT,
     email TEXT,
     password_hash TEXT,
+    onboarding_completed INTEGER NOT NULL DEFAULT 1,
     avatar_color TEXT,
     is_friend_profile INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -46,10 +50,22 @@ CREATE TABLE clubs (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE club_memberships (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    club_id TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE CASCADE,
+    CHECK (role IN ('owner', 'admin', 'member'))
+);
+
 CREATE TABLE events (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     club_id TEXT NOT NULL,
+    created_by_user_id TEXT,
     building_id TEXT NOT NULL,
     floor INTEGER NOT NULL,
     room TEXT NOT NULL,
@@ -60,9 +76,13 @@ CREATE TABLE events (
     food_available INTEGER NOT NULL DEFAULT 0,
     food_type TEXT,
     description TEXT NOT NULL,
+    image_url TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE CASCADE,
-    FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE
+    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE,
+    CHECK (status IN ('active', 'cancelled'))
 );
 
 CREATE TABLE event_tags (
@@ -104,6 +124,33 @@ CREATE TABLE friend_requests (
     CHECK (status IN ('pending', 'accepted', 'declined'))
 );
 
+CREATE TABLE notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    is_dismissed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor_user_id TEXT,
+    event_id TEXT,
+    club_id TEXT,
+    link TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
+    FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE SET NULL
+);
+
+CREATE TABLE user_interests (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    interest_name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE event_attendees (
     user_id TEXT NOT NULL,
     event_id TEXT NOT NULL,
@@ -129,7 +176,14 @@ CREATE TABLE schedule_classes (
 CREATE INDEX idx_events_start_time ON events(start_time);
 CREATE INDEX idx_events_building_id ON events(building_id);
 CREATE INDEX idx_events_club_id ON events(club_id);
+CREATE INDEX idx_events_status ON events(status);
+CREATE UNIQUE INDEX idx_club_memberships_user_club ON club_memberships(user_id, club_id);
+CREATE INDEX idx_club_memberships_user_role ON club_memberships(user_id, role);
+CREATE INDEX idx_club_memberships_club_role ON club_memberships(club_id, role);
 CREATE INDEX idx_schedule_classes_user_id ON schedule_classes(user_id);
 CREATE UNIQUE INDEX idx_users_email_unique ON users(email);
 CREATE INDEX idx_friend_requests_sender ON friend_requests(sender_user_id, status);
 CREATE INDEX idx_friend_requests_receiver ON friend_requests(receiver_user_id, status);
+CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read);
+CREATE INDEX idx_notifications_user_dismissed ON notifications(user_id, is_dismissed);
+CREATE INDEX idx_user_interests_user_id ON user_interests(user_id);

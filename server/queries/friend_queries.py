@@ -401,7 +401,7 @@ def remove_friend(user_id: str, friend_id: str) -> bool:
 def get_friends_going_to_event(user_id: str, event_id: str) -> list[dict] | None:
     with get_connection() as connection:
         event_exists = connection.execute(
-            "SELECT id FROM events WHERE id = ?;",
+            "SELECT id FROM events WHERE id = ? AND COALESCE(status, 'active') = 'active';",
             (event_id,),
         ).fetchone()
         if event_exists is None:
@@ -445,6 +445,7 @@ def get_friend_events_feed(user_id: str) -> list[dict]:
             JOIN events e ON e.id = ea.event_id
             JOIN clubs c ON c.id = e.club_id
             WHERE f.user_id = ?
+              AND COALESCE(e.status, 'active') = 'active'
             ORDER BY e.start_time ASC, u.name ASC;
             """,
             (user_id,),

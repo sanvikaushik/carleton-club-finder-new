@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AttendanceMeter } from "../components/AttendanceMeter";
-import { Club, EventModel, Friend, getClubs, getEvent, getEventFriendsGoing, getFriends } from "../api/client";
+import { cancelClubEvent, Club, EventModel, Friend, getClubs, getEvent, getEventFriendsGoing, getFriends } from "../api/client";
 import { useAppState } from "../state/appState";
 
 function formatDateTime(iso: string) {
   const date = new Date(iso);
-  return `${date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} · ${date.toLocaleTimeString([], {
+  return `${date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} | ${date.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
   })}`;
@@ -35,6 +36,8 @@ export const EventDetails: React.FC = () => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [eventFriends, setEventFriends] = useState<Friend[] | null>(null);
   const [reaction, setReaction] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [busyAction, setBusyAction] = useState<"cancel" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +84,27 @@ export const EventDetails: React.FC = () => {
     return event.friendsGoing.map((friendId) => byId.get(friendId)).filter(Boolean) as Friend[];
   }, [event, eventFriends, friends]);
 
+  const handleCancelEvent = async () => {
+    if (!eventId || !event) return;
+    if (!window.confirm("Cancel this event? Attendees will keep their history and receive a notification.")) {
+      return;
+    }
+    setBusyAction("cancel");
+    setActionError("");
+    try {
+      const cancelled = await cancelClubEvent(eventId);
+      setEvent(cancelled);
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        setActionError(error.response?.data?.error ?? "Could not cancel this event.");
+      } else {
+        setActionError("Could not cancel this event.");
+      }
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   if (!eventId) {
     return null;
   }
@@ -101,12 +125,18 @@ export const EventDetails: React.FC = () => {
         <>
           <div className={`detailBanner enriched ${event.happeningNow ? "live" : ""}`} aria-hidden />
 
+          {event.isCancelled ? <div className="statusBanner error">This event has been cancelled.</div> : null}
+          {actionError ? <div className="statusBanner error">{actionError}</div> : null}
+
           <div className="detailTitleRow">
             <div>
               <div className="detailTitle">{event.title}</div>
               <div className="detailClub">{clubName}</div>
             </div>
-            {event.happeningNow ? <div className="liveBadge">Happening Now</div> : null}
+            <div className="eventBadgeRow">
+              {event.happeningNow ? <div className="liveBadge">Happening Now</div> : null}
+              {event.isCancelled ? <div className="eventBadge">Cancelled</div> : null}
+            </div>
           </div>
 
           <div className="tagRow">
@@ -126,7 +156,9 @@ export const EventDetails: React.FC = () => {
             <div className="detailMetaCard">
               <div className="detailMetaLabel">Where</div>
               <div className="detailMetaValue">{event.building}</div>
-              <div className="detailMetaSmall">{event.room}</div>
+              <div className="detailMetaSmall">
+                Floor {event.floor} | {event.room}
+              </div>
             </div>
             <div className="detailMetaCard">
               <div className="detailMetaLabel">Crowd</div>
@@ -134,6 +166,19 @@ export const EventDetails: React.FC = () => {
               <div className="detailMetaSmall">{friendsGoing.length} friends spotted</div>
             </div>
           </div>
+
+          {event.canManage ? (
+            <div className="organizerActionRow">
+              <button type="button" className="secondaryBtn organizerActionBtn" onClick={() => navigate(`/events/${encodeURIComponent(event.id)}/edit`)}>
+                Edit Event
+              </button>
+              {!event.isCancelled ? (
+                <button type="button" className="secondaryBtn organizerDangerBtn" onClick={() => void handleCancelEvent()} disabled={busyAction === "cancel"}>
+                  {busyAction === "cancel" ? "Cancelling..." : "Cancel Event"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="detailSection">
             <div className="detailSectionTitle">Campus energy</div>
@@ -188,9 +233,11 @@ export const EventDetails: React.FC = () => {
             </div>
           </div>
 
-          <button type="button" className={`joinBtn ${isEventGoing(event.id) ? "active" : ""}`} onClick={() => toggleGoingEvent(event.id)}>
-            {isEventGoing(event.id) ? "Leave Event" : "Join Event"}
-          </button>
+          {!event.isCancelled ? (
+            <button type="button" className={`joinBtn ${isEventGoing(event.id) ? "active" : ""}`} onClick={() => toggleGoingEvent(event.id)}>
+              {isEventGoing(event.id) ? "Leave Event" : "Join Event"}
+            </button>
+          ) : null}
 
           <div className="bottomSpace" />
         </>

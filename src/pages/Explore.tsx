@@ -81,7 +81,15 @@ export const Explore: React.FC = () => {
 
   return (
     <div className="page">
-      <h1 className="pageTitle">Explore</h1>
+      <div className="pageHeaderRow">
+        <div>
+          <h1 className="pageTitle">Explore</h1>
+          <div className="pageSubtitle">Browse the live event stream or jump straight into global search.</div>
+        </div>
+        <button type="button" className="secondaryBtn headerSecondaryBtn" onClick={() => navigate("/search")}>
+          Search
+        </button>
+      </div>
 
       <SegmentedControl value={exploreFilter} options={segmentOptions} onChange={setExploreFilter} />
 
