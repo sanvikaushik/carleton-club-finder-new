@@ -30,7 +30,7 @@ export function ClubCard(props: {
   return (
     <div className="clubCard" role="article" aria-label={`Club: ${club.name}`}>
       <div className="clubVisualRow">
-        <div className="clubAvatar">{initials(club.name)}</div>
+        {club.imageUrl ? <img className="clubAvatar image" src={club.imageUrl} alt="" /> : <div className="clubAvatar">{initials(club.name)}</div>}
         <div className="clubVisualText">
           <div className="clubName">{club.name}</div>
           <div className="clubCategory">{club.category} · {club.followerCount ?? 0} followers</div>

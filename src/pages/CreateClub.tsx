@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { ApiErrorPayload, createClub, CreateClubPayload } from "../api/client";
+import { ApiErrorPayload, createClub, CreateClubPayload, uploadClubImage } from "../api/client";
+import { ImageUploadField } from "../components/ImageUploadField";
 import { validateCreateClubForm } from "../utils/createClubValidation";
 
 const INITIAL_FORM: CreateClubPayload = {
@@ -91,6 +92,8 @@ export const CreateClub: React.FC = () => {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CreateClubPayload, string>>>({});
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitError, setSubmitError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   const onChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
@@ -103,6 +106,14 @@ export const CreateClub: React.FC = () => {
     });
     setSubmitError("");
     if (submitState !== "idle") setSubmitState("idle");
+  };
+
+  const onImageFileChange = (file: File | null) => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    setImageFile(file);
+    setImagePreviewUrl(file ? URL.createObjectURL(file) : null);
   };
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -129,6 +140,9 @@ export const CreateClub: React.FC = () => {
         socialLink: form.socialLink.trim(),
         imageUrl: form.imageUrl.trim(),
       });
+      if (imageFile) {
+        await uploadClubImage(created.id, imageFile);
+      }
       setSubmitState("success");
       navigate("/clubs", { state: { createdClubName: created.name } });
     } catch (error) {
@@ -161,7 +175,7 @@ export const CreateClub: React.FC = () => {
           <div className="createClubHeroTitle">Club profile preview</div>
           <div className="createClubHeroSub">Use an image URL or leave it blank for a generated placeholder.</div>
         </div>
-        <ClubPreview name={form.name} imageUrl={form.imageUrl} />
+        <ClubPreview name={form.name} imageUrl={imagePreviewUrl || form.imageUrl} />
       </div>
 
       <form className="createClubForm" onSubmit={onSubmit} noValidate>
@@ -223,6 +237,16 @@ export const CreateClub: React.FC = () => {
           onChange={onChange}
           placeholder="https://example.com/logo.png"
           type="url"
+        />
+        <ImageUploadField
+          title="Upload club logo"
+          helperText="JPG, PNG, WEBP, or GIF up to 5 MB. If you choose a file, it will be uploaded after the club is created."
+          currentImageUrl={form.imageUrl}
+          previewUrl={imagePreviewUrl}
+          fallbackLabel={form.name || "Club"}
+          inputId="create-club-image-upload"
+          busy={submitState === "loading"}
+          onFileChange={onImageFileChange}
         />
 
         <div className="formHint">The image field is optional. If you leave it blank, the app uses a placeholder with the club initials.</div>

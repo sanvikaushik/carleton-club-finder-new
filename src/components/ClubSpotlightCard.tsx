@@ -17,7 +17,7 @@ export const ClubSpotlightCard: React.FC<{
 }> = ({ club, reason, onOpen }) => {
   return (
     <button type="button" className="clubSpotlightCard" onClick={onOpen}>
-      <div className="clubSpotlightAvatar">{initials(club.name)}</div>
+      {club.imageUrl ? <img className="clubSpotlightAvatar image" src={club.imageUrl} alt="" /> : <div className="clubSpotlightAvatar">{initials(club.name)}</div>}
       <div className="clubSpotlightMain">
         <div className="clubSpotlightTitle">{club.name}</div>
         <div className="clubSpotlightMeta">

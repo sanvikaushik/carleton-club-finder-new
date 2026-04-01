@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from io import BytesIO
+
 
 def test_signup_success_sets_session(client):
     response = client.post(
@@ -67,3 +69,19 @@ def test_login_invalid_password_fails(client, db, login):
 
     assert response.status_code == 401
     assert response.get_json()["error"] == "Invalid email or password"
+
+
+def test_profile_image_upload_updates_current_user(client, db, login):
+    db.create_user(name="Photo User", email="photo@cmail.carleton.ca")
+    login(client, "photo@cmail.carleton.ca")
+
+    response = client.post(
+        "/api/users/me/profile-image",
+        data={"image": (BytesIO(b"\x89PNG\r\n\x1a\nprofile-image"), "avatar.png")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["imageUrl"].startswith("/uploads/profiles/")
+    assert payload["user"]["profileImageUrl"] == payload["imageUrl"]

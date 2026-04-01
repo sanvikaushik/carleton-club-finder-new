@@ -55,6 +55,7 @@ export const ClubDetail: React.FC = () => {
       ) : (
         <>
           <div className="clubHeroCard">
+            {payload.club.imageUrl ? <img className="clubHeroImage" src={payload.club.imageUrl} alt="" /> : null}
             <div className="clubHeroHeader">
               <div>
                 <div className="detailTitle">{payload.club.name}</div>

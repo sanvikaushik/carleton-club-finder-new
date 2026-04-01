@@ -13,12 +13,14 @@ try:
     from .event_queries import get_all_events
     from .friend_queries import get_friend_events_feed, get_friends_for_user, search_users_for_friendship
     from .interest_queries import get_interest_keywords, get_user_interest_names
+    from .privacy_queries import build_privacy_context, can_view_activity_context, can_view_clubs_context
     from .user_queries import get_user_by_id
 except ImportError:
     from queries.club_queries import get_all_clubs, get_club_by_id, get_club_tags
     from queries.event_queries import get_all_events
     from queries.friend_queries import get_friend_events_feed, get_friends_for_user, search_users_for_friendship
     from queries.interest_queries import get_interest_keywords, get_user_interest_names
+    from queries.privacy_queries import build_privacy_context, can_view_activity_context, can_view_clubs_context
     from queries.user_queries import get_user_by_id
 
 
@@ -40,7 +42,7 @@ def _serialize_activity_item(kind: str, *, actor_name: str, primary_text: str, t
     }
 
 
-def _get_friend_follow_rows(friend_ids: list[str]) -> list[dict]:
+def _get_friend_follow_rows(friend_ids: list[str], viewer_id: str | None = None) -> list[dict]:
     if not friend_ids:
         return []
 
@@ -62,7 +64,14 @@ def _get_friend_follow_rows(friend_ids: list[str]) -> list[dict]:
             """,
             tuple(friend_ids),
         ).fetchall()
-    return [dict(row) for row in rows]
+        filtered_rows = []
+        for row in rows:
+            if viewer_id:
+                context = build_privacy_context(connection, viewer_id, row["user_id"])
+                if not can_view_activity_context(context) or not can_view_clubs_context(context):
+                    continue
+            filtered_rows.append(dict(row))
+    return filtered_rows
 
 
 def _derive_user_interests(user_id: str, events: list[dict], clubs: list[dict]) -> list[str]:
@@ -183,7 +192,7 @@ def get_discovery_bundle(user_id: str) -> dict:
     friends = get_friends_for_user(user_id)
     friend_ids = [friend["id"] for friend in friends]
     friend_event_feed = get_friend_events_feed(user_id)
-    friend_follow_rows = _get_friend_follow_rows(friend_ids)
+    friend_follow_rows = _get_friend_follow_rows(friend_ids, viewer_id=user_id)
     favorite_club_ids = set(user.get("favoriteClubIds", []))
     interest_list = _derive_user_interests(user_id, events, clubs)
     interest_tags = set(interest_list)
@@ -338,7 +347,7 @@ def get_club_detail_bundle(club_id: str, user_id: str | None = None) -> dict | N
 
     friend_count = 0
     if user_id:
-        friend_follow_rows = _get_friend_follow_rows([friend["id"] for friend in get_friends_for_user(user_id)])
+        friend_follow_rows = _get_friend_follow_rows([friend["id"] for friend in get_friends_for_user(user_id)], viewer_id=user_id)
         friend_count = sum(1 for row in friend_follow_rows if row["club_id"] == club_id)
 
     return {

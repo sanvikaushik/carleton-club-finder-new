@@ -77,6 +77,7 @@ export type AuthUser = {
   email?: string | null;
   program?: string | null;
   year?: string | null;
+  profileImageUrl?: string | null;
   onboardingCompleted: boolean;
   interests: string[];
   favoriteClubIds: string[];
@@ -104,9 +105,15 @@ export type Friend = {
   program?: string | null;
   year?: string | null;
   avatarColor?: string;
+  profileImageUrl?: string | null;
   attendingEventIds: string[];
   sharedClubCount: number;
   mutualFriendsCount: number;
+  canReceiveFriendRequests?: boolean;
+  canReceiveMessages?: boolean;
+  canReceiveEventInvites?: boolean;
+  isProfileRestricted?: boolean;
+  privacyNote?: string | null;
 };
 
 export type FriendSearchResult = Friend & {
@@ -131,6 +138,7 @@ export type SocialUser = {
   program?: string | null;
   year?: string | null;
   avatarColor?: string | null;
+  profileImageUrl?: string | null;
 };
 
 export type EventInvite = {
@@ -179,6 +187,8 @@ export type ConversationSummary = {
   lastMessagePreview: string;
   lastMessageTime?: string | null;
   unreadCount: number;
+  canSendMessages?: boolean;
+  messageRestriction?: string | null;
 };
 
 export type ChatMessage = {
@@ -324,6 +334,7 @@ export type UserResponse = {
   program: string;
   email?: string | null;
   year?: string | null;
+  profileImageUrl?: string | null;
   onboardingCompleted: boolean;
   interests: string[];
   favoriteClubIds: string[];
@@ -336,10 +347,35 @@ export type OnboardingPayload = {
   starterFriendIds: string[];
 };
 
+export type PrivacyVisibility = "public" | "friends" | "private";
+export type PrivacyAudience = "everyone" | "mutuals_only" | "nobody";
+export type PrivacyMessageAudience = "friends" | "nobody";
+
+export type PrivacySettings = {
+  id: string;
+  userId: string;
+  profileVisibility: PrivacyVisibility;
+  clubsVisibility: PrivacyVisibility;
+  attendanceVisibility: PrivacyVisibility;
+  activityVisibility: PrivacyVisibility;
+  allowFriendRequestsFrom: PrivacyAudience;
+  allowMessagesFrom: PrivacyMessageAudience;
+  allowEventInvitesFrom: PrivacyMessageAudience;
+  showInSearch: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const api = axios.create({
   baseURL: "/api",
   timeout: 8000,
 });
+
+function buildImageFormData(file: File): FormData {
+  const formData = new FormData();
+  formData.append("image", file);
+  return formData;
+}
 
 export async function getEvents(): Promise<EventModel[]> {
   const res = await api.get("/events");
@@ -402,6 +438,21 @@ export async function getClubDetail(clubId: string): Promise<ClubDetailPayload> 
 
 export async function createClub(payload: CreateClubPayload): Promise<Club> {
   const res = await api.post("/clubs", payload);
+  return res.data;
+}
+
+export async function uploadProfileImage(file: File): Promise<{ imageUrl: string; user: AuthUser }> {
+  const res = await api.post("/users/me/profile-image", buildImageFormData(file));
+  return res.data;
+}
+
+export async function uploadClubImage(clubId: string, file: File): Promise<{ imageUrl: string; club: Club }> {
+  const res = await api.post(`/clubs/${encodeURIComponent(clubId)}/image`, buildImageFormData(file));
+  return res.data;
+}
+
+export async function uploadEventImage(eventId: string, file: File): Promise<{ imageUrl: string; event: EventModel }> {
+  const res = await api.post(`/events/${encodeURIComponent(eventId)}/image`, buildImageFormData(file));
   return res.data;
 }
 
@@ -616,6 +667,16 @@ export async function saveMyInterests(interests: string[]): Promise<{
 }> {
   const res = await api.post("/users/me/interests", { interests });
   return res.data;
+}
+
+export async function getMyPrivacySettings(): Promise<PrivacySettings> {
+  const res = await api.get("/users/me/privacy-settings");
+  return res.data.settings;
+}
+
+export async function updateMyPrivacySettings(payload: Omit<PrivacySettings, "id" | "userId" | "createdAt" | "updatedAt">): Promise<PrivacySettings> {
+  const res = await api.put("/users/me/privacy-settings", payload);
+  return res.data.settings;
 }
 
 export async function completeOnboarding(payload: OnboardingPayload): Promise<{

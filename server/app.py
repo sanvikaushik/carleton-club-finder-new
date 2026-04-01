@@ -2,19 +2,23 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+from werkzeug.exceptions import RequestEntityTooLarge
 
 try:
     from .DB_management.migrate_db import apply_migrations
     from .routes import api_bp
+    from .uploads import MAX_IMAGE_BYTES, ensure_upload_directories, get_upload_root
 except ImportError:
     from DB_management.migrate_db import apply_migrations
     from routes import api_bp
+    from uploads import MAX_IMAGE_BYTES, ensure_upload_directories, get_upload_root
 
 
 def create_app() -> Flask:
     apply_migrations()
+    ensure_upload_directories()
 
     app = Flask(__name__)
     app.config.update(
@@ -22,6 +26,8 @@ def create_app() -> Flask:
         SECRET_KEY=os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
+        MAX_CONTENT_LENGTH=MAX_IMAGE_BYTES,
+        UPLOAD_FOLDER=str(get_upload_root()),
     )
 
     CORS(
@@ -30,6 +36,14 @@ def create_app() -> Flask:
     )
 
     app.register_blueprint(api_bp)
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_large_upload(_error):
+        return jsonify({"error": "Image too large", "details": "Images must be 5 MB or smaller."}), 413
+
+    @app.route("/uploads/<path:filename>", methods=["GET"])
+    def serve_upload(filename: str):
+        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
     @app.route("/health", methods=["GET"])
     def health() -> tuple[str, int]:

@@ -5,9 +5,17 @@ from uuid import uuid4
 try:
     from ..db import get_connection
     from .friend_queries import are_friends
+    from .privacy_queries import build_privacy_context, can_send_event_invite_context
 except ImportError:
     from db import get_connection
     from queries.friend_queries import are_friends
+    from queries.privacy_queries import build_privacy_context, can_send_event_invite_context
+
+
+def _invite_block_message(context: dict) -> str:
+    if context["settings"]["allowEventInvitesFrom"] == "nobody":
+        return "This user is not accepting event invites."
+    return "You can only invite friends to events."
 
 
 def _serialize_user(prefix: str, row) -> dict[str, str | None]:
@@ -18,6 +26,7 @@ def _serialize_user(prefix: str, row) -> dict[str, str | None]:
         "program": row[f"{prefix}_program"],
         "year": row[f"{prefix}_year"],
         "avatarColor": row[f"{prefix}_avatar_color"],
+        "profileImageUrl": row[f"{prefix}_profile_image_url"],
     }
 
 
@@ -66,12 +75,14 @@ def _get_joined_invite_rows(connection, where_sql: str, params: tuple) -> list[d
             sender.program AS sender_program,
             sender.year AS sender_year,
             sender.avatar_color AS sender_avatar_color,
+            sender.profile_image_url AS sender_profile_image_url,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
             recipient.email AS recipient_email,
             recipient.program AS recipient_program,
             recipient.year AS recipient_year,
-            recipient.avatar_color AS recipient_avatar_color
+            recipient.avatar_color AS recipient_avatar_color,
+            recipient.profile_image_url AS recipient_profile_image_url
         FROM event_invites ei
         JOIN events e ON e.id = ei.event_id
         JOIN clubs c ON c.id = e.club_id
@@ -116,6 +127,10 @@ def create_event_invite(sender_user_id: str, event_id: str, recipient_user_id: s
         ).fetchone()
         if recipient_row is None:
             raise LookupError("Student not found.")
+
+        privacy_context = build_privacy_context(connection, sender_user_id, recipient_user_id)
+        if not can_send_event_invite_context(privacy_context):
+            raise PermissionError(_invite_block_message(privacy_context))
 
         existing = connection.execute(
             """
@@ -164,7 +179,7 @@ def get_event_invite_summary_for_user(user_id: str, event_id: str) -> dict | Non
 
         friend_rows = connection.execute(
             """
-            SELECT u.id, u.name, u.email, u.program, u.year, u.avatar_color
+            SELECT u.id, u.name, u.email, u.program, u.year, u.avatar_color, u.profile_image_url
             FROM friends f
             JOIN users u ON u.id = f.friend_id
             WHERE f.user_id = ?
@@ -190,18 +205,24 @@ def get_event_invite_summary_for_user(user_id: str, event_id: str) -> dict | Non
         ).fetchall()
 
         blocked_ids = {row[0] for row in pending_or_accepted_rows}
-        invitable_friends = [
-            {
-                "id": row["id"],
-                "name": row["name"],
-                "email": row["email"],
-                "program": row["program"],
-                "year": row["year"],
-                "avatarColor": row["avatar_color"],
-            }
-            for row in friend_rows
-            if row["id"] not in blocked_ids
-        ]
+        invitable_friends = []
+        for row in friend_rows:
+            if row["id"] in blocked_ids:
+                continue
+            privacy_context = build_privacy_context(connection, user_id, row["id"])
+            if not can_send_event_invite_context(privacy_context):
+                continue
+            invitable_friends.append(
+                {
+                    "id": row["id"],
+                    "name": row["name"],
+                    "email": row["email"],
+                    "program": row["program"],
+                    "year": row["year"],
+                    "avatarColor": row["avatar_color"],
+                    "profileImageUrl": row["profile_image_url"],
+                }
+            )
 
         incoming = _get_joined_invite_rows(
             connection,

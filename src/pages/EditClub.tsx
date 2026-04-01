@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import { ApiErrorPayload, ClubDetailPayload, CreateClubPayload, getClubDetail, updateClubDetails } from "../api/client";
+import { ApiErrorPayload, ClubDetailPayload, CreateClubPayload, getClubDetail, updateClubDetails, uploadClubImage } from "../api/client";
+import { ImageUploadField } from "../components/ImageUploadField";
 import { validateCreateClubForm } from "../utils/createClubValidation";
 
 const INITIAL_FORM: CreateClubPayload = {
@@ -25,6 +26,8 @@ export const EditClub: React.FC = () => {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CreateClubPayload, string>>>({});
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitError, setSubmitError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +63,14 @@ export const EditClub: React.FC = () => {
     setSubmitError("");
   };
 
+  const onImageFileChange = (file: File | null) => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    setImageFile(file);
+    setImagePreviewUrl(file ? URL.createObjectURL(file) : null);
+  };
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!clubId) return;
@@ -75,6 +86,9 @@ export const EditClub: React.FC = () => {
     setSubmitError("");
     try {
       await updateClubDetails(clubId, form);
+      if (imageFile) {
+        await uploadClubImage(clubId, imageFile);
+      }
       setSubmitState("success");
       navigate(`/clubs/${encodeURIComponent(clubId)}`, { replace: true });
     } catch (error) {
@@ -151,6 +165,16 @@ export const EditClub: React.FC = () => {
             <input className={`formInput ${fieldErrors.imageUrl ? "isError" : ""}`} name="imageUrl" type="url" value={form.imageUrl} onChange={onChange} />
             {fieldErrors.imageUrl ? <span className="fieldError">{fieldErrors.imageUrl}</span> : null}
           </label>
+          <ImageUploadField
+            title="Upload club logo"
+            helperText="Upload a file to replace the current club image. Existing external image URLs continue to work."
+            currentImageUrl={form.imageUrl}
+            previewUrl={imagePreviewUrl}
+            fallbackLabel={form.name || "Club"}
+            inputId="edit-club-image-upload"
+            busy={submitState === "loading"}
+            onFileChange={onImageFileChange}
+          />
 
           {submitState === "success" ? <div className="statusBanner success">Club updated successfully.</div> : null}
           {submitError ? <div className="statusBanner error">{submitError}</div> : null}

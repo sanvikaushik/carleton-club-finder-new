@@ -11,7 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 try:
     from .queries.auth_queries import create_auth_user, get_auth_user_by_email, get_auth_user_by_id
     from .queries.building_queries import get_all_buildings
-    from .queries.club_queries import create_club, get_all_clubs, get_club_by_id, get_club_follower_user_ids, set_club_favorite, update_club
+    from .queries.club_queries import create_club, get_all_clubs, get_club_by_id, get_club_follower_user_ids, set_club_favorite, update_club, update_club_image
     from .queries.discovery_queries import get_club_detail_bundle, get_discovery_bundle
     from .queries.event_queries import (
         cancel_event,
@@ -21,6 +21,7 @@ try:
         get_event_by_id,
         set_event_attendance,
         update_event,
+        update_event_image,
     )
     from .queries.event_invite_queries import (
         create_event_invite,
@@ -53,6 +54,13 @@ try:
         mark_all_notifications_read,
         mark_notification_read,
     )
+    from .queries.privacy_queries import (
+        FRIEND_REQUEST_OPTIONS,
+        MESSAGE_OPTIONS,
+        VISIBILITY_OPTIONS,
+        get_user_privacy_settings,
+        update_user_privacy_settings,
+    )
     from .queries.organizer_queries import (
         can_edit_club,
         can_manage_club_events,
@@ -70,11 +78,12 @@ try:
     )
     from .queries.search_queries import search_everything
     from .queries.schedule_queries import get_schedule_for_user
-    from .queries.user_queries import get_user_by_id
+    from .queries.user_queries import get_user_by_id, update_user_profile_image
+    from .uploads import UploadValidationError, save_image_upload
 except ImportError:
     from queries.auth_queries import create_auth_user, get_auth_user_by_email, get_auth_user_by_id
     from queries.building_queries import get_all_buildings
-    from queries.club_queries import create_club, get_all_clubs, get_club_by_id, get_club_follower_user_ids, set_club_favorite, update_club
+    from queries.club_queries import create_club, get_all_clubs, get_club_by_id, get_club_follower_user_ids, set_club_favorite, update_club, update_club_image
     from queries.discovery_queries import get_club_detail_bundle, get_discovery_bundle
     from queries.event_queries import (
         cancel_event,
@@ -84,6 +93,7 @@ except ImportError:
         get_event_by_id,
         set_event_attendance,
         update_event,
+        update_event_image,
     )
     from queries.event_invite_queries import (
         create_event_invite,
@@ -116,6 +126,13 @@ except ImportError:
         mark_all_notifications_read,
         mark_notification_read,
     )
+    from queries.privacy_queries import (
+        FRIEND_REQUEST_OPTIONS,
+        MESSAGE_OPTIONS,
+        VISIBILITY_OPTIONS,
+        get_user_privacy_settings,
+        update_user_privacy_settings,
+    )
     from queries.organizer_queries import (
         can_edit_club,
         can_manage_club_events,
@@ -133,7 +150,8 @@ except ImportError:
     )
     from queries.search_queries import search_everything
     from queries.schedule_queries import get_schedule_for_user
-    from queries.user_queries import get_user_by_id
+    from queries.user_queries import get_user_by_id, update_user_profile_image
+    from uploads import UploadValidationError, save_image_upload
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -186,6 +204,7 @@ def _serialize_auth_user(user: dict[str, Any]) -> dict[str, Any]:
         "email": user.get("email"),
         "program": user.get("program"),
         "year": user.get("year"),
+        "profileImageUrl": user.get("profileImageUrl") or user.get("profile_image_url"),
         "onboardingCompleted": bool(user.get("onboarding_completed", user.get("onboardingCompleted", True))),
         "interests": user.get("interests", []),
         "favoriteClubIds": user.get("favoriteClubIds", []),
@@ -201,9 +220,15 @@ def _serialize_friend_summary(friend: dict[str, Any]) -> dict[str, Any]:
         "program": friend.get("program"),
         "year": friend.get("year"),
         "avatarColor": friend.get("avatarColor"),
+        "profileImageUrl": friend.get("profileImageUrl"),
         "attendingEventIds": friend.get("attendingEventIds", []),
         "sharedClubCount": friend.get("sharedClubCount", 0),
         "mutualFriendsCount": friend.get("mutualFriendsCount", 0),
+        "canReceiveFriendRequests": bool(friend.get("canReceiveFriendRequests", False)),
+        "canReceiveMessages": bool(friend.get("canReceiveMessages", False)),
+        "canReceiveEventInvites": bool(friend.get("canReceiveEventInvites", False)),
+        "isProfileRestricted": bool(friend.get("isProfileRestricted", False)),
+        "privacyNote": friend.get("privacyNote"),
     }
 
 
@@ -233,6 +258,24 @@ def _serialize_social_user(user: dict[str, Any] | None) -> dict[str, Any] | None
         "program": user.get("program"),
         "year": user.get("year"),
         "avatarColor": user.get("avatarColor"),
+        "profileImageUrl": user.get("profileImageUrl"),
+    }
+
+
+def _serialize_privacy_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": settings["id"],
+        "userId": settings["userId"],
+        "profileVisibility": settings["profileVisibility"],
+        "clubsVisibility": settings["clubsVisibility"],
+        "attendanceVisibility": settings["attendanceVisibility"],
+        "activityVisibility": settings["activityVisibility"],
+        "allowFriendRequestsFrom": settings["allowFriendRequestsFrom"],
+        "allowMessagesFrom": settings["allowMessagesFrom"],
+        "allowEventInvitesFrom": settings["allowEventInvitesFrom"],
+        "showInSearch": bool(settings["showInSearch"]),
+        "createdAt": settings["createdAt"],
+        "updatedAt": settings["updatedAt"],
     }
 
 
@@ -272,6 +315,8 @@ def _serialize_conversation(conversation: dict[str, Any]) -> dict[str, Any]:
         "lastMessagePreview": conversation.get("last_message_preview") or "",
         "lastMessageTime": conversation.get("last_message_time"),
         "unreadCount": int(conversation.get("unread_count") or 0),
+        "canSendMessages": bool(conversation.get("can_send_messages", True)),
+        "messageRestriction": conversation.get("message_restriction"),
     }
 
 
@@ -573,6 +618,35 @@ def _validate_interest_names(value: Any) -> tuple[list[str], dict[str, str]]:
     return normalized[:6], {}
 
 
+def _validate_privacy_settings_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+    normalized = {
+        "profileVisibility": str(payload.get("profileVisibility", "")).strip(),
+        "clubsVisibility": str(payload.get("clubsVisibility", "")).strip(),
+        "attendanceVisibility": str(payload.get("attendanceVisibility", "")).strip(),
+        "activityVisibility": str(payload.get("activityVisibility", "")).strip(),
+        "allowFriendRequestsFrom": str(payload.get("allowFriendRequestsFrom", "")).strip(),
+        "allowMessagesFrom": str(payload.get("allowMessagesFrom", "")).strip(),
+        "allowEventInvitesFrom": str(payload.get("allowEventInvitesFrom", "")).strip(),
+        "showInSearch": bool(payload.get("showInSearch")),
+    }
+    errors: dict[str, str] = {}
+
+    for field in ("profileVisibility", "clubsVisibility", "attendanceVisibility", "activityVisibility"):
+        if normalized[field] not in VISIBILITY_OPTIONS:
+            errors[field] = "Choose public, friends, or private."
+
+    if normalized["allowFriendRequestsFrom"] not in FRIEND_REQUEST_OPTIONS:
+        errors["allowFriendRequestsFrom"] = "Choose everyone, mutuals_only, or nobody."
+
+    if normalized["allowMessagesFrom"] not in MESSAGE_OPTIONS:
+        errors["allowMessagesFrom"] = "Choose friends or nobody."
+
+    if normalized["allowEventInvitesFrom"] not in MESSAGE_OPTIONS:
+        errors["allowEventInvitesFrom"] = "Choose friends or nobody."
+
+    return normalized, errors
+
+
 def _event_overlaps_schedule(event: dict[str, Any], schedule_classes: list[dict[str, Any]]) -> bool:
     event_start = _parse_iso_datetime(event["startTime"])
     event_end = _parse_iso_datetime(event["endTime"])
@@ -795,6 +869,34 @@ def api_save_my_interests():
     return jsonify({"interests": saved, "user": _serialize_auth_user(updated_user)})
 
 
+@api_bp.route("/users/me/privacy-settings", methods=["GET"])
+def api_my_privacy_settings():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    settings = get_user_privacy_settings(user["id"])
+    return jsonify({"settings": _serialize_privacy_settings(settings)})
+
+
+@api_bp.route("/users/me/privacy-settings", methods=["PUT"])
+def api_update_my_privacy_settings():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    normalized, field_errors = _validate_privacy_settings_payload(payload)
+    if field_errors:
+        return jsonify({"error": "Invalid privacy settings", "fieldErrors": field_errors}), 400
+
+    updated = update_user_privacy_settings(user["id"], normalized)
+    return jsonify({"settings": _serialize_privacy_settings(updated)})
+
+
 @api_bp.route("/users/me/onboarding", methods=["POST"])
 def api_complete_onboarding():
     user = _get_authenticated_user()
@@ -835,7 +937,7 @@ def api_complete_onboarding():
             continue
         try:
             created_request = create_friend_request(user["id"], friend_id_str)
-        except (LookupError, ValueError):
+        except (LookupError, PermissionError, ValueError):
             continue
 
         receiver_user = get_user_by_id(friend_id_str)
@@ -1015,6 +1117,30 @@ def api_auth_me():
     return jsonify({"user": _serialize_auth_user(user)})
 
 
+@api_bp.route("/users/me/profile-image", methods=["POST"])
+def api_upload_profile_image():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    image_file = request.files.get("image")
+    if image_file is None:
+        return jsonify({"error": "Image file is required."}), 400
+
+    try:
+        image_url = save_image_upload(
+            image_file,
+            folder="profiles",
+            entity_id=user["id"],
+            existing_url=user.get("profileImageUrl"),
+        )
+    except UploadValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    updated = update_user_profile_image(user["id"], image_url)
+    return jsonify({"imageUrl": image_url, "user": _serialize_auth_user(updated)})
+
+
 @api_bp.route("/clubs", methods=["POST"])
 def api_create_club():
     authenticated_user = _get_authenticated_user()
@@ -1132,6 +1258,36 @@ def api_update_club(club_id: str):
     return jsonify(_serialize_club(updated, user))
 
 
+@api_bp.route("/clubs/<club_id>/image", methods=["POST"])
+def api_upload_club_image(club_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    club = get_club_by_id(club_id)
+    if club is None:
+        return jsonify({"error": "Club not found"}), 404
+    if not (can_manage_club_events(user["id"], club_id) or can_edit_club(user["id"], club_id)):
+        return jsonify({"error": "You do not have permission to upload media for this club."}), 403
+
+    image_file = request.files.get("image")
+    if image_file is None:
+        return jsonify({"error": "Image file is required."}), 400
+
+    try:
+        image_url = save_image_upload(
+            image_file,
+            folder="clubs",
+            entity_id=club_id,
+            existing_url=club.get("image_url"),
+        )
+    except UploadValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    updated = update_club_image(club_id, image_url)
+    return jsonify({"imageUrl": image_url, "club": _serialize_club(updated, user)})
+
+
 @api_bp.route("/clubs/<club_id>/events", methods=["POST"])
 def api_create_event(club_id: str):
     user = _get_authenticated_user()
@@ -1239,6 +1395,36 @@ def api_update_managed_event(event_id: str):
         )
 
     return jsonify(_serialize_event(updated, user))
+
+
+@api_bp.route("/events/<event_id>/image", methods=["POST"])
+def api_upload_event_image(event_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    event = get_event_by_id(event_id)
+    if event is None:
+        return jsonify({"error": "Event not found"}), 404
+    if not can_manage_club_events(user["id"], event["clubId"]):
+        return jsonify({"error": "You do not have permission to upload media for this event."}), 403
+
+    image_file = request.files.get("image")
+    if image_file is None:
+        return jsonify({"error": "Image file is required."}), 400
+
+    try:
+        image_url = save_image_upload(
+            image_file,
+            folder="events",
+            entity_id=event_id,
+            existing_url=event.get("imageUrl"),
+        )
+    except UploadValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    updated = update_event_image(event_id, image_url)
+    return jsonify({"imageUrl": image_url, "event": _serialize_event(updated, user)})
 
 
 @api_bp.route("/events/<event_id>", methods=["DELETE"])
@@ -1413,6 +1599,8 @@ def api_send_friend_request():
         created_request = create_friend_request(user["id"], receiver_user_id)
     except LookupError:
         return jsonify({"error": "Student not found"}), 404
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 409
 

@@ -121,6 +121,9 @@ export const ChatDetail: React.FC = () => {
         <div className="statusBanner error">{pageError}</div>
       ) : (
         <>
+          {conversation?.canSendMessages === false && conversation.messageRestriction ? (
+            <div className="statusBanner error">{conversation.messageRestriction}</div>
+          ) : null}
           <div className="chatThread">
             {messages.length === 0 ? (
               <div className="placeholderCard">No messages yet. Start making a plan.</div>
@@ -140,12 +143,18 @@ export const ChatDetail: React.FC = () => {
           <div className="chatComposer">
             <textarea
               className="formInput chatComposerInput"
-              placeholder="Send a message"
+              placeholder={conversation?.canSendMessages === false ? "Messaging unavailable" : "Send a message"}
               value={messageBody}
               onChange={(event) => setMessageBody(event.target.value)}
               maxLength={1000}
+              disabled={conversation?.canSendMessages === false}
             />
-            <button type="button" className="primaryBtn chatSendBtn" onClick={() => void handleSend()} disabled={sending || !messageBody.trim()}>
+            <button
+              type="button"
+              className="primaryBtn chatSendBtn"
+              onClick={() => void handleSend()}
+              disabled={sending || !messageBody.trim() || conversation?.canSendMessages === false}
+            >
               {sending ? "Sending..." : "Send"}
             </button>
           </div>

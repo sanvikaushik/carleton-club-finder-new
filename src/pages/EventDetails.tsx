@@ -207,7 +207,11 @@ export const EventDetails: React.FC = () => {
         <div className="placeholderCard">Loading event...</div>
       ) : (
         <>
-          <div className={`detailBanner enriched ${event.happeningNow ? "live" : ""}`} aria-hidden />
+          {event.imageUrl ? (
+            <img className={`detailBannerImage ${event.happeningNow ? "live" : ""}`} src={event.imageUrl} alt="" />
+          ) : (
+            <div className={`detailBanner enriched ${event.happeningNow ? "live" : ""}`} aria-hidden />
+          )}
 
           {event.isCancelled ? <div className="statusBanner error">This event has been cancelled.</div> : null}
           {actionError ? <div className="statusBanner error">{actionError}</div> : null}
@@ -284,7 +288,7 @@ export const EventDetails: React.FC = () => {
           <div className="detailSection">
             <div className="detailSectionTitle">Friends attending</div>
             {friendsGoing.length === 0 ? (
-              <div className="mutedText">No friends going yet.</div>
+              <div className="mutedText">No visible friends going yet.</div>
             ) : (
               <>
                 <div className="friendChipRow">
@@ -329,6 +333,10 @@ export const EventDetails: React.FC = () => {
               ) : (
                 <div className="mutedText">No shared plans yet for this event.</div>
               )}
+
+              {inviteSummary && inviteSummary.invitableFriends.length === 0 ? (
+                <div className="mutedText socialRestrictionNote">No friends are currently available for invites on this event.</div>
+              ) : null}
 
               {inviteSummary && inviteSummary.incoming.length > 0 ? (
                 <div className="socialStack eventInviteStack">

@@ -358,6 +358,31 @@ def update_event(
     return get_event_by_id(event_id)
 
 
+def update_event_image(event_id: str, image_url: str | None) -> dict | None:
+    with get_connection() as connection:
+        existing = connection.execute(
+            """
+            SELECT id
+            FROM events
+            WHERE id = ?;
+            """,
+            (event_id,),
+        ).fetchone()
+        if existing is None:
+            return None
+
+        connection.execute(
+            """
+            UPDATE events
+            SET image_url = ?
+            WHERE id = ?;
+            """,
+            (image_url, event_id),
+        )
+        connection.commit()
+    return get_event_by_id(event_id)
+
+
 def cancel_event(event_id: str) -> dict | None:
     with get_connection() as connection:
         existing = connection.execute(

@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversation_participants;
 DROP TABLE IF EXISTS conversations;
 DROP TABLE IF EXISTS event_invites;
+DROP TABLE IF EXISTS user_privacy_settings;
 DROP TABLE IF EXISTS event_attendees;
 DROP TABLE IF EXISTS event_tags;
 DROP TABLE IF EXISTS club_memberships;
@@ -25,6 +26,7 @@ CREATE TABLE users (
     email TEXT,
     password_hash TEXT,
     onboarding_completed INTEGER NOT NULL DEFAULT 1,
+    profile_image_url TEXT,
     avatar_color TEXT,
     is_friend_profile INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -163,6 +165,29 @@ CREATE TABLE notifications (
     FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE SET NULL
 );
 
+CREATE TABLE user_privacy_settings (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    profile_visibility TEXT NOT NULL DEFAULT 'public',
+    clubs_visibility TEXT NOT NULL DEFAULT 'public',
+    attendance_visibility TEXT NOT NULL DEFAULT 'public',
+    activity_visibility TEXT NOT NULL DEFAULT 'public',
+    allow_friend_requests_from TEXT NOT NULL DEFAULT 'everyone',
+    allow_messages_from TEXT NOT NULL DEFAULT 'friends',
+    allow_event_invites_from TEXT NOT NULL DEFAULT 'friends',
+    show_in_search INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (profile_visibility IN ('public', 'friends', 'private')),
+    CHECK (clubs_visibility IN ('public', 'friends', 'private')),
+    CHECK (attendance_visibility IN ('public', 'friends', 'private')),
+    CHECK (activity_visibility IN ('public', 'friends', 'private')),
+    CHECK (allow_friend_requests_from IN ('everyone', 'mutuals_only', 'nobody')),
+    CHECK (allow_messages_from IN ('friends', 'nobody')),
+    CHECK (allow_event_invites_from IN ('friends', 'nobody'))
+);
+
 CREATE TABLE conversations (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -235,6 +260,7 @@ CREATE INDEX idx_event_invites_recipient_status ON event_invites(recipient_user_
 CREATE INDEX idx_event_invites_sender_status ON event_invites(sender_user_id, status);
 CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read);
 CREATE INDEX idx_notifications_user_dismissed ON notifications(user_id, is_dismissed);
+CREATE INDEX idx_privacy_user_search ON user_privacy_settings(show_in_search, user_id);
 CREATE UNIQUE INDEX idx_conversation_participants_unique ON conversation_participants(conversation_id, user_id);
 CREATE INDEX idx_conversation_participants_user ON conversation_participants(user_id, conversation_id);
 CREATE INDEX idx_messages_conversation_created ON messages(conversation_id, created_at);

@@ -5,9 +5,17 @@ from uuid import uuid4
 try:
     from ..db import get_connection
     from .friend_queries import are_friends
+    from .privacy_queries import build_privacy_context, can_send_message_context
 except ImportError:
     from db import get_connection
     from queries.friend_queries import are_friends
+    from queries.privacy_queries import build_privacy_context, can_send_message_context
+
+
+def _message_block_message(context: dict) -> str:
+    if context["settings"]["allowMessagesFrom"] == "nobody":
+        return "This user is not accepting messages."
+    return "You can only message friends."
 
 
 def _serialize_user(row, prefix: str) -> dict[str, str | None]:
@@ -18,6 +26,7 @@ def _serialize_user(row, prefix: str) -> dict[str, str | None]:
         "program": row[f"{prefix}_program"],
         "year": row[f"{prefix}_year"],
         "avatarColor": row[f"{prefix}_avatar_color"],
+        "profileImageUrl": row[f"{prefix}_profile_image_url"],
     }
 
 
@@ -33,7 +42,7 @@ def _serialize_message_row(row) -> dict:
     }
 
 
-def _serialize_conversation_row(row) -> dict:
+def _serialize_conversation_row(row, *, can_send_messages: bool = True, message_restriction: str | None = None) -> dict:
     return {
         "id": row["id"],
         "created_at": row["created_at"],
@@ -42,6 +51,8 @@ def _serialize_conversation_row(row) -> dict:
         "last_message_preview": row["last_message_preview"] or "",
         "last_message_time": row["last_message_time"] or row["updated_at"],
         "unread_count": int(row["unread_count"] or 0),
+        "can_send_messages": can_send_messages,
+        "message_restriction": message_restriction,
     }
 
 
@@ -66,8 +77,14 @@ def _get_direct_conversation_id(connection, user_id: str, other_user_id: str) ->
     return row["conversation_id"] if row is not None else None
 
 
+def _conversation_permissions(connection, user_id: str, other_user_id: str) -> tuple[bool, str | None]:
+    context = build_privacy_context(connection, user_id, other_user_id)
+    can_send = can_send_message_context(context) and are_friends(user_id, other_user_id)
+    return can_send, None if can_send else _message_block_message(context)
+
+
 def _get_conversation_row_for_user(connection, user_id: str, conversation_id: str):
-    return connection.execute(
+    row = connection.execute(
         """
         SELECT
             c.id,
@@ -79,6 +96,7 @@ def _get_conversation_row_for_user(connection, user_id: str, conversation_id: st
             other.program AS other_program,
             other.year AS other_year,
             other.avatar_color AS other_avatar_color,
+            other.profile_image_url AS other_profile_image_url,
             (
                 SELECT m.body
                 FROM messages m
@@ -113,6 +131,10 @@ def _get_conversation_row_for_user(connection, user_id: str, conversation_id: st
         """,
         (user_id, user_id, user_id, conversation_id),
     ).fetchone()
+    if row is None:
+        return None
+    can_send, message_restriction = _conversation_permissions(connection, user_id, row["other_id"])
+    return _serialize_conversation_row(row, can_send_messages=can_send, message_restriction=message_restriction)
 
 
 def list_conversations_for_user(user_id: str) -> list[dict]:
@@ -129,6 +151,7 @@ def list_conversations_for_user(user_id: str) -> list[dict]:
                 other.program AS other_program,
                 other.year AS other_year,
                 other.avatar_color AS other_avatar_color,
+                other.profile_image_url AS other_profile_image_url,
                 (
                     SELECT m.body
                     FROM messages m
@@ -164,7 +187,14 @@ def list_conversations_for_user(user_id: str) -> list[dict]:
             (user_id, user_id, user_id),
         ).fetchall()
 
-    return [_serialize_conversation_row(row) for row in rows]
+        conversations = []
+        for row in rows:
+            can_send, message_restriction = _conversation_permissions(connection, user_id, row["other_id"])
+            conversations.append(
+                _serialize_conversation_row(row, can_send_messages=can_send, message_restriction=message_restriction)
+            )
+
+    return conversations
 
 
 def create_or_get_direct_conversation(user_id: str, other_user_id: str) -> dict:
@@ -180,6 +210,10 @@ def create_or_get_direct_conversation(user_id: str, other_user_id: str) -> dict:
         ).fetchone()
         if other_user is None:
             raise LookupError("Student not found.")
+
+        privacy_context = build_privacy_context(connection, user_id, other_user_id)
+        if not can_send_message_context(privacy_context):
+            raise PermissionError(_message_block_message(privacy_context))
 
         conversation_id = _get_direct_conversation_id(connection, user_id, other_user_id)
         if conversation_id is None:
@@ -209,13 +243,13 @@ def create_or_get_direct_conversation(user_id: str, other_user_id: str) -> dict:
 
         row = _get_conversation_row_for_user(connection, user_id, conversation_id)
 
-    return _serialize_conversation_row(row) if row is not None else {}
+    return row if row is not None else {}
 
 
 def get_conversation_for_user(user_id: str, conversation_id: str) -> dict | None:
     with get_connection() as connection:
         row = _get_conversation_row_for_user(connection, user_id, conversation_id)
-    return _serialize_conversation_row(row) if row is not None else None
+    return row
 
 
 def list_messages_for_conversation(user_id: str, conversation_id: str) -> list[dict] | None:
@@ -241,6 +275,7 @@ def list_messages_for_conversation(user_id: str, conversation_id: str) -> list[d
                 sender.program AS sender_program,
                 sender.year AS sender_year,
                 sender.avatar_color AS sender_avatar_color
+                , sender.profile_image_url AS sender_profile_image_url
             FROM messages m
             JOIN users sender ON sender.id = m.sender_user_id
             WHERE m.conversation_id = ?
@@ -280,6 +315,10 @@ def send_message(user_id: str, conversation_id: str, body: str) -> tuple[dict, s
         if not are_friends(user_id, other_user_id):
             raise PermissionError("You can only message friends.")
 
+        privacy_context = build_privacy_context(connection, user_id, other_user_id)
+        if not can_send_message_context(privacy_context):
+            raise PermissionError(_message_block_message(privacy_context))
+
         connection.execute(
             """
             INSERT INTO messages (id, conversation_id, sender_user_id, body)
@@ -307,6 +346,7 @@ def send_message(user_id: str, conversation_id: str, body: str) -> tuple[dict, s
                 sender.program AS sender_program,
                 sender.year AS sender_year,
                 sender.avatar_color AS sender_avatar_color
+                , sender.profile_image_url AS sender_profile_image_url
             FROM messages m
             JOIN users sender ON sender.id = m.sender_user_id
             WHERE m.id = ?;

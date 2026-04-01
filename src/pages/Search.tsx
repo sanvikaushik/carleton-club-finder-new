@@ -229,13 +229,15 @@ export const Search: React.FC = () => {
                     </div>
                     <div className="searchResultMeta">{[user.program, user.year].filter(Boolean).join(" · ") || user.email || "Student"}</div>
                     <div className="searchResultSub">
-                      {user.status === "friends"
-                        ? "Friends"
-                        : user.status === "requested"
-                          ? "Request sent"
-                          : user.status === "incoming_request"
-                            ? "Incoming request"
-                            : "Open Friends to connect"}
+                      {user.privacyNote
+                        ? user.privacyNote
+                        : user.status === "friends"
+                          ? "Friends"
+                          : user.status === "requested"
+                            ? "Request sent"
+                            : user.status === "incoming_request"
+                              ? "Incoming request"
+                              : "Open Friends to connect"}
                     </div>
                   </button>
                 ))}

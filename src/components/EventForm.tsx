@@ -68,11 +68,12 @@ export const EventForm: React.FC<{
   submitState: "idle" | "loading" | "success" | "error";
   submitError: string;
   successMessage?: string;
+  imageUploadSlot?: React.ReactNode;
   onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onToggleFood: () => void;
   onCancel: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-}> = ({ title, subtitle, values, errors, buildings, submitLabel, submitState, submitError, successMessage, onChange, onToggleFood, onCancel, onSubmit }) => {
+}> = ({ title, subtitle, values, errors, buildings, submitLabel, submitState, submitError, successMessage, imageUploadSlot, onChange, onToggleFood, onCancel, onSubmit }) => {
   return (
     <>
       <div className="pageHeaderRow">
@@ -172,6 +173,7 @@ export const EventForm: React.FC<{
           placeholder="https://example.com/event-banner.png"
           type="url"
         />
+        {imageUploadSlot}
 
         <div className="formHint">Tags should be comma-separated. The event image is optional and safe to leave blank.</div>
 

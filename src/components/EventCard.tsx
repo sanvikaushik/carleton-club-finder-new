@@ -43,6 +43,7 @@ export function EventCard(props: {
       onClick={onOpen}
       style={{ cursor: onOpen ? "pointer" : "default" }}
     >
+      {event.imageUrl ? <img className="eventCardImage" src={event.imageUrl} alt="" /> : null}
       <div className="eventCardHeader">
         <div className="eventCardTitleRow">
           <div className="eventCardTitle">{event.title}</div>

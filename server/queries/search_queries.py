@@ -3,16 +3,20 @@ from __future__ import annotations
 from datetime import datetime
 
 try:
+    from ..db import get_connection
     from .building_queries import get_all_buildings
     from .club_queries import get_all_clubs
     from .event_queries import get_all_events
     from .friend_queries import search_users_for_friendship
+    from .privacy_queries import build_privacy_context, can_show_in_search_context, can_view_profile_context, privacy_note_for_profile
     from .user_queries import get_all_users
 except ImportError:
+    from db import get_connection
     from queries.building_queries import get_all_buildings
     from queries.club_queries import get_all_clubs
     from queries.event_queries import get_all_events
     from queries.friend_queries import search_users_for_friendship
+    from queries.privacy_queries import build_privacy_context, can_show_in_search_context, can_view_profile_context, privacy_note_for_profile
     from queries.user_queries import get_all_users
 
 
@@ -99,23 +103,37 @@ def search_everything(query: str, *, viewer_id: str | None, limit_per_section: i
         user_matches = search_users_for_friendship(viewer_id, normalized_query, limit=limit_per_section)
     else:
         user_matches = []
-        for user in get_all_users():
-            score = _score_text(normalized_query, user["name"], user.get("email") or "", user.get("program") or "", user.get("year") or "")
-            if score <= 0:
-                continue
-            user_matches.append(
-                (
-                    score,
-                    {
-                        "id": user["id"],
-                        "name": user["name"],
-                        "email": user.get("email"),
-                        "program": user.get("program"),
-                        "year": user.get("year"),
-                        "status": "none",
-                    },
+        with get_connection() as connection:
+            for user in get_all_users():
+                context = build_privacy_context(connection, None, user["id"])
+                if not can_show_in_search_context(context):
+                    continue
+                visible_profile = can_view_profile_context(context)
+                score = _score_text(normalized_query, user["name"], user.get("email") or "", user.get("program") or "", user.get("year") or "")
+                if score <= 0:
+                    continue
+                user_matches.append(
+                    (
+                        score,
+                        {
+                            "id": user["id"],
+                            "name": user["name"],
+                            "email": user.get("email") if visible_profile else None,
+                            "program": user.get("program") if visible_profile else None,
+                            "year": user.get("year") if visible_profile else None,
+                            "profileImageUrl": user.get("profileImageUrl"),
+                            "attendingEventIds": [],
+                            "sharedClubCount": 0,
+                            "mutualFriendsCount": 0,
+                            "status": "none",
+                            "canReceiveFriendRequests": False,
+                            "canReceiveMessages": False,
+                            "canReceiveEventInvites": False,
+                            "isProfileRestricted": not visible_profile,
+                            "privacyNote": privacy_note_for_profile(context),
+                        },
+                    )
                 )
-            )
         user_matches.sort(key=lambda item: (item[0], item[1]["name"].lower()), reverse=True)
         user_matches = [item[1] for item in user_matches[:limit_per_section]]
 
@@ -138,6 +156,6 @@ def search_everything(query: str, *, viewer_id: str | None, limit_per_section: i
     return {
         "clubs": [item[1] for item in club_matches[:limit_per_section]],
         "events": [item[1] for item in event_matches[:limit_per_section]],
-        "users": user_matches if viewer_id else user_matches,
+        "users": user_matches,
         "buildings": [item[1] for item in building_matches[:limit_per_section]],
     }

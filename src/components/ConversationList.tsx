@@ -37,6 +37,9 @@ export const ConversationList: React.FC<Props> = ({ conversations, loading, onOp
               <div className="conversationTime">{formatConversationTime(conversation.lastMessageTime)}</div>
             </div>
             <div className="conversationPreview">{conversation.lastMessagePreview || "Start making a plan."}</div>
+            {conversation.canSendMessages === false && conversation.messageRestriction ? (
+              <div className="socialSubMeta">{conversation.messageRestriction}</div>
+            ) : null}
           </div>
           {conversation.unreadCount > 0 ? <div className="conversationUnread">{conversation.unreadCount}</div> : null}
         </button>

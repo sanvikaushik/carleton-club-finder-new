@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from io import BytesIO
+
 
 def test_event_attendance_toggles_and_updates_count(client, db, login):
     user = db.create_user(name="Attendee", email="attendee@cmail.carleton.ca")
@@ -128,3 +130,50 @@ def test_admin_can_manage_events_but_unauthorized_user_gets_403(client, db, logi
     )
 
     assert forbidden.status_code == 403
+
+
+def test_owner_can_upload_club_and_event_images(client, db, login):
+    owner = db.create_user(name="Image Owner", email="image-owner@cmail.carleton.ca")
+    club = db.create_club(name="Media Club", owner_user_id=owner["id"])
+    event = db.create_event(club_id=club["id"], created_by_user_id=owner["id"])
+
+    login(client, owner["email"])
+
+    club_upload = client.post(
+        f"/api/clubs/{club['id']}/image",
+        data={"image": (BytesIO(b"\x89PNG\r\n\x1a\nclub-image"), "club.png")},
+        content_type="multipart/form-data",
+    )
+    event_upload = client.post(
+        f"/api/events/{event['id']}/image",
+        data={"image": (BytesIO(b"\x89PNG\r\n\x1a\nevent-image"), "event.png")},
+        content_type="multipart/form-data",
+    )
+
+    assert club_upload.status_code == 200
+    assert club_upload.get_json()["imageUrl"].startswith("/uploads/clubs/")
+    assert event_upload.status_code == 200
+    assert event_upload.get_json()["imageUrl"].startswith("/uploads/events/")
+
+
+def test_unauthorized_user_cannot_upload_club_or_event_images(client, db, login):
+    owner = db.create_user(name="Upload Owner", email="upload-owner@cmail.carleton.ca")
+    stranger = db.create_user(name="Upload Stranger", email="upload-stranger@cmail.carleton.ca")
+    club = db.create_club(name="Locked Media Club", owner_user_id=owner["id"])
+    event = db.create_event(club_id=club["id"], created_by_user_id=owner["id"])
+
+    login(client, stranger["email"])
+
+    club_upload = client.post(
+        f"/api/clubs/{club['id']}/image",
+        data={"image": (BytesIO(b"\x89PNG\r\n\x1a\nclub-image"), "club.png")},
+        content_type="multipart/form-data",
+    )
+    event_upload = client.post(
+        f"/api/events/{event['id']}/image",
+        data={"image": (BytesIO(b"\x89PNG\r\n\x1a\nevent-image"), "event.png")},
+        content_type="multipart/form-data",
+    )
+
+    assert club_upload.status_code == 403
+    assert event_upload.status_code == 403

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import { ApiErrorPayload, Building, EventPayload, getBuildings, getEvent, updateClubEvent } from "../api/client";
+import { ApiErrorPayload, Building, EventPayload, getBuildings, getEvent, updateClubEvent, uploadEventImage } from "../api/client";
 import { EventForm, EventFormValues } from "../components/EventForm";
+import { ImageUploadField } from "../components/ImageUploadField";
 import { validateEventForm } from "../utils/eventValidation";
 
 const INITIAL_FORM: EventFormValues = {
@@ -62,6 +63,8 @@ export const EditEvent: React.FC = () => {
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof EventFormValues, string>>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +106,14 @@ export const EditEvent: React.FC = () => {
     setSubmitError("");
   };
 
+  const onImageFileChange = (file: File | null) => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    setImageFile(file);
+    setImagePreviewUrl(file ? URL.createObjectURL(file) : null);
+  };
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!eventId) return;
@@ -119,6 +130,9 @@ export const EditEvent: React.FC = () => {
     setSubmitError("");
     try {
       const updated = await updateClubEvent(eventId, payload);
+      if (imageFile) {
+        await uploadEventImage(eventId, imageFile);
+      }
       setSubmitState("success");
       navigate(`/event/${encodeURIComponent(updated.id)}`, { replace: true });
     } catch (error) {
@@ -166,6 +180,18 @@ export const EditEvent: React.FC = () => {
           submitState={submitState}
           submitError={submitError}
           successMessage="Event updated successfully."
+          imageUploadSlot={
+            <ImageUploadField
+              title="Upload event banner"
+              helperText="Uploading a file will replace the current event image after you save."
+              currentImageUrl={form.imageUrl}
+              previewUrl={imagePreviewUrl}
+              fallbackLabel={form.title || "Event"}
+              inputId="edit-event-image-upload"
+              busy={submitState === "loading"}
+              onFileChange={onImageFileChange}
+            />
+          }
           onChange={onChange}
           onToggleFood={() => setForm((current) => ({ ...current, foodAvailable: !current.foodAvailable }))}
           onCancel={() => navigate(-1)}

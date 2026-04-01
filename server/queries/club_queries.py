@@ -214,6 +214,31 @@ def update_club(
     return get_club_by_id(club_id)
 
 
+def update_club_image(club_id: str, image_url: str | None) -> dict | None:
+    with get_connection() as connection:
+        existing = connection.execute(
+            """
+            SELECT id
+            FROM clubs
+            WHERE id = ?;
+            """,
+            (club_id,),
+        ).fetchone()
+        if existing is None:
+            return None
+
+        connection.execute(
+            """
+            UPDATE clubs
+            SET image_url = ?
+            WHERE id = ?;
+            """,
+            (image_url, club_id),
+        )
+        connection.commit()
+    return get_club_by_id(club_id)
+
+
 def get_favorite_club_ids(user_id: str) -> list[str]:
     with get_connection() as connection:
         rows = connection.execute(

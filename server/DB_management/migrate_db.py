@@ -28,6 +28,7 @@ USER_COLUMN_MIGRATIONS = {
     "email": "ALTER TABLE users ADD COLUMN email TEXT;",
     "password_hash": "ALTER TABLE users ADD COLUMN password_hash TEXT;",
     "onboarding_completed": "ALTER TABLE users ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 1;",
+    "profile_image_url": "ALTER TABLE users ADD COLUMN profile_image_url TEXT;",
 }
 
 FRIEND_REQUESTS_TABLE_SQL = """
@@ -135,6 +136,31 @@ CREATE TABLE IF NOT EXISTS messages (
     is_read INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+"""
+
+USER_PRIVACY_SETTINGS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS user_privacy_settings (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    profile_visibility TEXT NOT NULL DEFAULT 'public',
+    clubs_visibility TEXT NOT NULL DEFAULT 'public',
+    attendance_visibility TEXT NOT NULL DEFAULT 'public',
+    activity_visibility TEXT NOT NULL DEFAULT 'public',
+    allow_friend_requests_from TEXT NOT NULL DEFAULT 'everyone',
+    allow_messages_from TEXT NOT NULL DEFAULT 'friends',
+    allow_event_invites_from TEXT NOT NULL DEFAULT 'friends',
+    show_in_search INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (profile_visibility IN ('public', 'friends', 'private')),
+    CHECK (clubs_visibility IN ('public', 'friends', 'private')),
+    CHECK (attendance_visibility IN ('public', 'friends', 'private')),
+    CHECK (activity_visibility IN ('public', 'friends', 'private')),
+    CHECK (allow_friend_requests_from IN ('everyone', 'mutuals_only', 'nobody')),
+    CHECK (allow_messages_from IN ('friends', 'nobody')),
+    CHECK (allow_event_invites_from IN ('friends', 'nobody'))
 );
 """
 
@@ -332,6 +358,14 @@ def apply_migrations() -> None:
                 """
                 CREATE INDEX IF NOT EXISTS idx_messages_conversation_read
                 ON messages(conversation_id, is_read);
+                """
+            )
+
+            connection.execute(USER_PRIVACY_SETTINGS_TABLE_SQL)
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_privacy_user_search
+                ON user_privacy_settings(show_in_search, user_id);
                 """
             )
 

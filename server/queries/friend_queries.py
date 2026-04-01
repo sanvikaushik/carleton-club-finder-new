@@ -5,12 +5,43 @@ from uuid import uuid4
 
 try:
     from ..db import get_connection
+    from .privacy_queries import (
+        build_privacy_context,
+        can_send_event_invite_context,
+        can_send_friend_request_context,
+        can_send_message_context,
+        can_show_in_search_context,
+        can_view_activity_context,
+        can_view_attendance_context,
+        can_view_clubs_context,
+        can_view_profile_context,
+        privacy_note_for_profile,
+    )
 except ImportError:
     from db import get_connection
+    from queries.privacy_queries import (
+        build_privacy_context,
+        can_send_event_invite_context,
+        can_send_friend_request_context,
+        can_send_message_context,
+        can_show_in_search_context,
+        can_view_activity_context,
+        can_view_attendance_context,
+        can_view_clubs_context,
+        can_view_profile_context,
+        privacy_note_for_profile,
+    )
 
 
 def _placeholders(count: int) -> str:
     return ",".join("?" for _ in range(count))
+
+
+def _friend_request_block_message(context: dict) -> str:
+    allowed = context["settings"]["allowFriendRequestsFrom"]
+    if allowed == "mutuals_only":
+        return "This student only accepts friend requests from mutual friends."
+    return "This student is not accepting friend requests."
 
 
 def _get_favorite_sets(connection, user_ids: list[str]) -> dict[str, set[str]]:
@@ -77,7 +108,7 @@ def _get_user_profile_map(connection, target_ids: list[str], viewer_id: str | No
 
     rows = connection.execute(
         f"""
-        SELECT id, name, email, program, year, avatar_color
+        SELECT id, name, email, program, year, avatar_color, profile_image_url
         FROM users
         WHERE id IN ({_placeholders(len(target_ids))});
         """,
@@ -91,22 +122,37 @@ def _get_user_profile_map(connection, target_ids: list[str], viewer_id: str | No
 
     viewer_favorites = favorite_sets.get(viewer_id or "", set())
     viewer_friends = friend_sets.get(viewer_id or "", set())
+    privacy_contexts = {target_id: build_privacy_context(connection, viewer_id, target_id) for target_id in target_ids}
 
     profiles: dict[str, dict] = {}
     for row in rows:
         target_id = row["id"]
+        context = privacy_contexts[target_id]
+        visible_profile = can_view_profile_context(context)
+        visible_clubs = can_view_clubs_context(context)
+        visible_attendance = can_view_attendance_context(context)
+        visible_activity = can_view_activity_context(context)
         target_favorites = favorite_sets.get(target_id, set())
         target_friends = friend_sets.get(target_id, set())
         profiles[target_id] = {
             "id": target_id,
             "name": row["name"],
-            "email": row["email"],
-            "program": row["program"],
-            "year": row["year"],
+            "email": row["email"] if visible_profile else None,
+            "program": row["program"] if visible_profile else None,
+            "year": row["year"] if visible_profile else None,
             "avatarColor": row["avatar_color"],
-            "attendingEventIds": attending_sets.get(target_id, []),
-            "sharedClubCount": len(viewer_favorites & target_favorites) if viewer_id else 0,
+            "profileImageUrl": row["profile_image_url"],
+            "attendingEventIds": attending_sets.get(target_id, []) if visible_attendance else [],
+            "sharedClubCount": len(viewer_favorites & target_favorites) if viewer_id and visible_clubs else 0,
             "mutualFriendsCount": len((viewer_friends & target_friends) - {viewer_id}) if viewer_id else 0,
+            "canReceiveFriendRequests": can_send_friend_request_context(context),
+            "canReceiveMessages": can_send_message_context(context),
+            "canReceiveEventInvites": can_send_event_invite_context(context),
+            "showInSearch": can_show_in_search_context(context),
+            "isProfileRestricted": not visible_profile and not context["isSelf"],
+            "privacyNote": privacy_note_for_profile(context),
+            "_canViewAttendance": visible_attendance,
+            "_canViewActivity": visible_activity,
         }
 
     return profiles
@@ -189,7 +235,7 @@ def search_users_for_friendship(user_id: str, query: str, limit: int = 8) -> lis
                 ORDER BY name ASC
                 LIMIT ?;
                 """,
-                (user_id, like_value, like_value, limit),
+                (user_id, like_value, like_value, limit * 3),
             ).fetchall()
         else:
             rows = connection.execute(
@@ -200,7 +246,7 @@ def search_users_for_friendship(user_id: str, query: str, limit: int = 8) -> lis
                 ORDER BY is_friend_profile ASC, name ASC
                 LIMIT ?;
                 """,
-                (user_id, limit),
+                (user_id, limit * 3),
             ).fetchall()
 
         target_ids = [row["id"] for row in rows]
@@ -211,7 +257,7 @@ def search_users_for_friendship(user_id: str, query: str, limit: int = 8) -> lis
     results: list[dict] = []
     for target_id in target_ids:
         profile = profiles.get(target_id)
-        if profile is None:
+        if profile is None or not profile.get("showInSearch", True):
             continue
 
         status = "none"
@@ -232,6 +278,8 @@ def search_users_for_friendship(user_id: str, query: str, limit: int = 8) -> lis
                 "requestId": request_id,
             }
         )
+        if len(results) >= limit:
+            break
     return results
 
 
@@ -257,6 +305,10 @@ def create_friend_request(sender_user_id: str, receiver_user_id: str) -> dict:
         ).fetchone()
         if existing_friendship is not None:
             raise ValueError("You are already friends with this student.")
+
+        privacy_context = build_privacy_context(connection, sender_user_id, receiver_user_id)
+        if not can_send_friend_request_context(privacy_context):
+            raise PermissionError(_friend_request_block_message(privacy_context))
 
         existing_request = connection.execute(
             """
@@ -434,7 +486,11 @@ def get_friends_going_to_event(user_id: str, event_id: str) -> list[dict] | None
         target_ids = [row["id"] for row in rows]
         profiles = _get_user_profile_map(connection, target_ids, viewer_id=user_id)
 
-    return [profiles[target_id] for target_id in target_ids if target_id in profiles]
+    return [
+        profiles[target_id]
+        for target_id in target_ids
+        if target_id in profiles and profiles[target_id].get("_canViewAttendance", False)
+    ]
 
 
 def get_friend_events_feed(user_id: str) -> list[dict]:
@@ -469,6 +525,10 @@ def get_friend_events_feed(user_id: str) -> list[dict]:
 
     by_event: dict[str, dict] = {}
     for row in rows:
+        profile = profiles.get(row["friend_id"])
+        if profile is None or not profile.get("_canViewAttendance", False) or not profile.get("_canViewActivity", False):
+            continue
+
         event_id = row["event_id"]
         if event_id not in by_event:
             by_event[event_id] = {
@@ -483,9 +543,7 @@ def get_friend_events_feed(user_id: str) -> list[dict]:
                 "endTime": row["end_time"],
                 "friends": [],
             }
-        profile = profiles.get(row["friend_id"])
-        if profile is not None:
-            by_event[event_id]["friends"].append(profile)
+        by_event[event_id]["friends"].append(profile)
 
     return [
         {

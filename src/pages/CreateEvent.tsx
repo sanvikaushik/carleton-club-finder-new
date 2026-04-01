@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import { ApiErrorPayload, Building, ClubDetailPayload, createClubEvent, EventPayload, getBuildings, getClubDetail } from "../api/client";
+import { ApiErrorPayload, Building, ClubDetailPayload, createClubEvent, EventPayload, getBuildings, getClubDetail, uploadEventImage } from "../api/client";
 import { EventForm, EventFormValues } from "../components/EventForm";
+import { ImageUploadField } from "../components/ImageUploadField";
 import { validateEventForm } from "../utils/eventValidation";
 
 const INITIAL_FORM: EventFormValues = {
@@ -49,6 +50,8 @@ export const CreateEvent: React.FC = () => {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof EventFormValues, string>>>({});
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitError, setSubmitError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +100,14 @@ export const CreateEvent: React.FC = () => {
     setSubmitError("");
   };
 
+  const onImageFileChange = (file: File | null) => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    setImageFile(file);
+    setImagePreviewUrl(file ? URL.createObjectURL(file) : null);
+  };
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!clubId) return;
@@ -113,6 +124,9 @@ export const CreateEvent: React.FC = () => {
     setSubmitState("loading");
     try {
       const created = await createClubEvent(clubId, payload);
+      if (imageFile) {
+        await uploadEventImage(created.id, imageFile);
+      }
       setSubmitState("success");
       navigate(`/event/${encodeURIComponent(created.id)}`, { replace: true });
     } catch (error) {
@@ -162,6 +176,18 @@ export const CreateEvent: React.FC = () => {
           submitState={submitState}
           submitError={submitError}
           successMessage="Event created successfully."
+          imageUploadSlot={
+            <ImageUploadField
+              title="Upload event banner"
+              helperText="If you choose a file, it will be uploaded right after the event is created."
+              currentImageUrl={form.imageUrl}
+              previewUrl={imagePreviewUrl}
+              fallbackLabel={form.title || clubPayload.club.name}
+              inputId="create-event-image-upload"
+              busy={submitState === "loading"}
+              onFileChange={onImageFileChange}
+            />
+          }
           onChange={onChange}
           onToggleFood={() => setForm((current) => ({ ...current, foodAvailable: !current.foodAvailable }))}
           onCancel={() => navigate(-1)}

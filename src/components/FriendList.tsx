@@ -36,7 +36,7 @@ export function FriendList(props: {
             <div className="friendTopRow">
               <div className="friendTop">
                 <div className="friendAvatar" style={{ background: friend.avatarColor ?? "rgba(255,255,255,0.18)" }}>
-                  {initials(friend.name)}
+                  {friend.profileImageUrl ? <img className="friendAvatarImage" src={friend.profileImageUrl} alt="" /> : initials(friend.name)}
                 </div>
                 <div className="friendNameBlock">
                   <div className="friendName">{friend.name}</div>
@@ -47,8 +47,13 @@ export function FriendList(props: {
               </div>
               <div className="socialActionRow">
                 {onMessageFriend ? (
-                  <button type="button" className="secondaryBtn socialActionBtn" onClick={() => onMessageFriend(friend.id)}>
-                    Message
+                  <button
+                    type="button"
+                    className="secondaryBtn socialActionBtn"
+                    onClick={() => onMessageFriend(friend.id)}
+                    disabled={friend.canReceiveMessages === false}
+                  >
+                    {friend.canReceiveMessages === false ? "Messages Off" : "Message"}
                   </button>
                 ) : null}
                 {onRemoveFriend ? (
@@ -72,7 +77,9 @@ export function FriendList(props: {
 
             <div className="friendEvents">
               {attended.length === 0 ? (
-                <div className="mutedText">No upcoming events yet</div>
+                <div className="mutedText">
+                  {friend.privacyNote && friend.attendingEventIds.length === 0 ? friend.privacyNote : "No upcoming events yet"}
+                </div>
               ) : (
                 attended.map((event) => (
                   <button key={event.id} type="button" className="friendEventChip" onClick={() => onOpenEvent(event.id)}>
@@ -84,6 +91,8 @@ export function FriendList(props: {
                 ))
               )}
             </div>
+
+            {friend.canReceiveMessages === false ? <div className="mutedText socialRestrictionNote">This user is not accepting messages right now.</div> : null}
           </div>
         );
       })}
