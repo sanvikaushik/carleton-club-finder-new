@@ -2,7 +2,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AttendanceMeter } from "../components/AttendanceMeter";
-import { cancelClubEvent, Club, EventModel, Friend, getClubs, getEvent, getEventFriendsGoing, getFriends } from "../api/client";
+import { InviteFriendsSheet } from "../components/InviteFriendsSheet";
+import {
+  acceptEventInvite,
+  cancelClubEvent,
+  Club,
+  declineEventInvite,
+  EventInviteSummary,
+  EventModel,
+  Friend,
+  getClubs,
+  getEvent,
+  getEventFriendsGoing,
+  getEventInvites,
+  getFriends,
+  sendEventInvite,
+  SocialUser,
+} from "../api/client";
 import { useAppState } from "../state/appState";
 
 function formatDateTime(iso: string) {
@@ -27,7 +43,7 @@ const REACTION_OPTIONS = ["🔥", "🎉", "🧠"];
 export const EventDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toggleGoingEvent, isEventGoing, isAuthenticated } = useAppState();
+  const { authUser, toggleGoingEvent, isEventGoing, isAuthenticated, refreshSessionState } = useAppState();
 
   const eventId = id ? decodeURIComponent(id) : null;
   const [loading, setLoading] = useState(true);
@@ -35,9 +51,14 @@ export const EventDetails: React.FC = () => {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [eventFriends, setEventFriends] = useState<Friend[] | null>(null);
+  const [inviteSummary, setInviteSummary] = useState<EventInviteSummary | null>(null);
+  const [inviteSheetOpen, setInviteSheetOpen] = useState(false);
   const [reaction, setReaction] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const [busyAction, setBusyAction] = useState<"cancel" | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [actingInviteId, setActingInviteId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,11 +72,13 @@ export const EventDetails: React.FC = () => {
           getFriends(),
           isAuthenticated ? getEventFriendsGoing(eventId) : Promise.resolve(null),
         ]);
+        const eventInvitesPayload = isAuthenticated ? await getEventInvites(eventId) : null;
         if (cancelled) return;
         setEvent(eventRow);
         setClubs(clubRows);
         setFriends(friendRows);
         setEventFriends(friendsGoingPayload?.friends ?? null);
+        setInviteSummary(eventInvitesPayload);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -84,6 +107,18 @@ export const EventDetails: React.FC = () => {
     return event.friendsGoing.map((friendId) => byId.get(friendId)).filter(Boolean) as Friend[];
   }, [event, eventFriends, friends]);
 
+  const acceptedPartners = useMemo(() => {
+    if (!inviteSummary || !authUser) return [];
+    const partnerMap = new Map<string, SocialUser>();
+    inviteSummary.accepted.forEach((invite) => {
+      const partner = invite.senderUserId === authUser.id ? invite.recipient : invite.sender;
+      if (partner?.id) {
+        partnerMap.set(partner.id, partner);
+      }
+    });
+    return [...partnerMap.values()];
+  }, [authUser, inviteSummary]);
+
   const handleCancelEvent = async () => {
     if (!eventId || !event) return;
     if (!window.confirm("Cancel this event? Attendees will keep their history and receive a notification.")) {
@@ -102,6 +137,55 @@ export const EventDetails: React.FC = () => {
       }
     } finally {
       setBusyAction(null);
+    }
+  };
+
+  const refreshSocial = async () => {
+    if (!eventId) return;
+    const [eventRow, friendsGoingPayload, eventInvitesPayload] = await Promise.all([
+      getEvent(eventId),
+      isAuthenticated ? getEventFriendsGoing(eventId) : Promise.resolve(null),
+      isAuthenticated ? getEventInvites(eventId) : Promise.resolve(null),
+    ]);
+    setEvent(eventRow);
+    setEventFriends(friendsGoingPayload?.friends ?? null);
+    setInviteSummary(eventInvitesPayload);
+  };
+
+  const handleSendInvites = async (friendIds: string[], message: string) => {
+    if (!eventId) return;
+    setInviteBusy(true);
+    setActionError("");
+    setStatusMessage("");
+    try {
+      await Promise.all(friendIds.map((friendId) => sendEventInvite(eventId, friendId, message)));
+      await refreshSocial();
+      setInviteSheetOpen(false);
+      setStatusMessage(`Invite${friendIds.length > 1 ? "s" : ""} sent.`);
+    } catch (error: any) {
+      setActionError(error?.response?.data?.error ?? "Could not send invites.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleInviteResponse = async (inviteId: string, accept: boolean) => {
+    setActingInviteId(inviteId);
+    setActionError("");
+    setStatusMessage("");
+    try {
+      if (accept) {
+        await acceptEventInvite(inviteId);
+        await refreshSessionState();
+      } else {
+        await declineEventInvite(inviteId);
+      }
+      await refreshSocial();
+      setStatusMessage(accept ? "Invite accepted. You're now going." : "Invite declined.");
+    } catch (error: any) {
+      setActionError(error?.response?.data?.error ?? "Could not update the invite.");
+    } finally {
+      setActingInviteId(null);
     }
   };
 
@@ -127,6 +211,7 @@ export const EventDetails: React.FC = () => {
 
           {event.isCancelled ? <div className="statusBanner error">This event has been cancelled.</div> : null}
           {actionError ? <div className="statusBanner error">{actionError}</div> : null}
+          {statusMessage ? <div className="statusBanner success">{statusMessage}</div> : null}
 
           <div className="detailTitleRow">
             <div>
@@ -214,6 +299,82 @@ export const EventDetails: React.FC = () => {
             )}
           </div>
 
+          {isAuthenticated ? (
+            <div className="detailSection">
+              <div className="detailSectionHeader">
+                <div className="detailSectionTitle">Go with friends</div>
+                {!event.isCancelled ? (
+                  <button
+                    type="button"
+                    className="secondaryBtn organizerActionBtn"
+                    onClick={() => setInviteSheetOpen(true)}
+                    disabled={(inviteSummary?.invitableFriends.length ?? 0) === 0}
+                  >
+                    Invite Friends
+                  </button>
+                ) : null}
+              </div>
+
+              {acceptedPartners.length > 0 ? (
+                <>
+                  <div className="friendChipRow">
+                    {acceptedPartners.map((partner) => (
+                      <div key={partner.id} className="friendChip" style={{ background: partner.avatarColor ?? "rgba(255,255,255,0.18)" }} title={partner.name}>
+                        {initials(partner.name)}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="friendNamesLine detailFriendNames">{acceptedPartners.map((partner) => partner.name).join(", ")}</div>
+                </>
+              ) : (
+                <div className="mutedText">No shared plans yet for this event.</div>
+              )}
+
+              {inviteSummary && inviteSummary.incoming.length > 0 ? (
+                <div className="socialStack eventInviteStack">
+                  {inviteSummary.incoming.map((invite) => (
+                    <div key={invite.id} className="socialCard">
+                      <div className="socialCardTop">
+                        <div>
+                          <div className="socialCardTitle">{invite.sender?.name ?? "A friend"} invited you</div>
+                          <div className="socialCardMeta">{invite.message || "Accept to automatically mark yourself as going."}</div>
+                        </div>
+                        <div className="socialActionRow">
+                          <button
+                            type="button"
+                            className="secondaryBtn socialActionBtn"
+                            onClick={() => void handleInviteResponse(invite.id, false)}
+                            disabled={actingInviteId === invite.id}
+                          >
+                            Decline
+                          </button>
+                          <button
+                            type="button"
+                            className="primaryBtn socialPrimaryBtn"
+                            onClick={() => void handleInviteResponse(invite.id, true)}
+                            disabled={actingInviteId === invite.id}
+                          >
+                            {actingInviteId === invite.id ? "Saving..." : "Accept"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {inviteSummary && inviteSummary.outgoing.length > 0 ? (
+                <div className="inviteMetaList">
+                  {inviteSummary.outgoing.map((invite) => (
+                    <div key={invite.id} className="inviteMetaRow">
+                      Waiting on {invite.recipient?.name ?? "friend"} to respond
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="detailSection">
             <div className="detailSectionTitle">Quick reactions</div>
             <div className="reactionRow">
@@ -240,6 +401,13 @@ export const EventDetails: React.FC = () => {
           ) : null}
 
           <div className="bottomSpace" />
+          <InviteFriendsSheet
+            open={inviteSheetOpen}
+            friends={inviteSummary?.invitableFriends ?? []}
+            busy={inviteBusy}
+            onClose={() => setInviteSheetOpen(false)}
+            onSubmit={handleSendInvites}
+          />
         </>
       )}
     </div>

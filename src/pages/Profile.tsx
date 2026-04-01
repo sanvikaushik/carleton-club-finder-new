@@ -81,9 +81,14 @@ export const Profile: React.FC = () => {
               {isAuthenticated ? (
                 <>
                   <div className="profileSessionMeta">{authUser?.email ?? "Signed in"}</div>
-                  <button type="button" className="secondaryBtn profileSessionBtn" onClick={() => void logOutUser()}>
-                    Logout
-                  </button>
+                  <div className="profileAuthActions">
+                    <button type="button" className="secondaryBtn profileSessionBtn" onClick={() => navigate("/messages")}>
+                      Messages
+                    </button>
+                    <button type="button" className="secondaryBtn profileSessionBtn" onClick={() => void logOutUser()}>
+                      Logout
+                    </button>
+                  </div>
                 </>
               ) : (
                 <>

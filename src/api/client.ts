@@ -124,6 +124,73 @@ export type FriendRequest = {
   user: Friend | null;
 };
 
+export type SocialUser = {
+  id: string;
+  name: string;
+  email?: string | null;
+  program?: string | null;
+  year?: string | null;
+  avatarColor?: string | null;
+};
+
+export type EventInvite = {
+  id: string;
+  eventId: string;
+  senderUserId: string;
+  recipientUserId: string;
+  status: "pending" | "accepted" | "declined";
+  message: string;
+  createdAt: string;
+  respondedAt?: string | null;
+  event: {
+    id: string;
+    title: string;
+    clubId: string;
+    clubName: string;
+    building: string;
+    room: string;
+    startTime: string;
+    endTime: string;
+    status: "active" | "cancelled";
+  };
+  sender: SocialUser | null;
+  recipient: SocialUser | null;
+};
+
+export type EventInviteSummary = {
+  eventId: string;
+  incoming: EventInvite[];
+  outgoing: EventInvite[];
+  accepted: EventInvite[];
+  invitableFriends: SocialUser[];
+};
+
+export type UserEventInvitesResponse = {
+  incoming: EventInvite[];
+  outgoing: EventInvite[];
+  history: EventInvite[];
+};
+
+export type ConversationSummary = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  otherParticipant: SocialUser | null;
+  lastMessagePreview: string;
+  lastMessageTime?: string | null;
+  unreadCount: number;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+  sender: SocialUser | null;
+};
+
 export type FriendsEventsFeedItem = {
   eventId: string;
   title: string;
@@ -464,6 +531,67 @@ export async function getEventFriendsGoing(eventId: string): Promise<EventFriend
 
 export async function getMyFriendsEvents(): Promise<FriendsEventsFeedItem[]> {
   const res = await api.get("/users/me/friends-events");
+  return res.data;
+}
+
+export async function getEventInvites(eventId: string): Promise<EventInviteSummary> {
+  const res = await api.get(`/events/${encodeURIComponent(eventId)}/invites`);
+  return res.data;
+}
+
+export async function sendEventInvite(eventId: string, recipientUserId: string, message: string): Promise<EventInvite> {
+  const res = await api.post(`/events/${encodeURIComponent(eventId)}/invites`, { recipientUserId, message });
+  return res.data.invite;
+}
+
+export async function getMyEventInvites(): Promise<UserEventInvitesResponse> {
+  const res = await api.get("/users/me/event-invites");
+  return res.data;
+}
+
+export async function acceptEventInvite(inviteId: string): Promise<{
+  invite: EventInvite;
+  attendanceCount: number;
+  attendingEventIds: string[];
+}> {
+  const res = await api.post(`/event-invites/${encodeURIComponent(inviteId)}/accept`);
+  return res.data;
+}
+
+export async function declineEventInvite(inviteId: string): Promise<{
+  invite: EventInvite;
+}> {
+  const res = await api.post(`/event-invites/${encodeURIComponent(inviteId)}/decline`);
+  return res.data;
+}
+
+export async function getConversations(): Promise<ConversationSummary[]> {
+  const res = await api.get("/conversations");
+  return res.data;
+}
+
+export async function createConversation(friendUserId: string): Promise<ConversationSummary> {
+  const res = await api.post("/conversations", { friendUserId });
+  return res.data;
+}
+
+export async function getConversation(conversationId: string): Promise<ConversationSummary> {
+  const res = await api.get(`/conversations/${encodeURIComponent(conversationId)}`);
+  return res.data;
+}
+
+export async function getConversationMessages(conversationId: string): Promise<ChatMessage[]> {
+  const res = await api.get(`/conversations/${encodeURIComponent(conversationId)}/messages`);
+  return res.data;
+}
+
+export async function sendConversationMessage(conversationId: string, body: string): Promise<ChatMessage> {
+  const res = await api.post(`/conversations/${encodeURIComponent(conversationId)}/messages`, { body });
+  return res.data.message;
+}
+
+export async function markConversationRead(conversationId: string): Promise<{ updatedCount: number }> {
+  const res = await api.post(`/conversations/${encodeURIComponent(conversationId)}/read`);
   return res.data;
 }
 

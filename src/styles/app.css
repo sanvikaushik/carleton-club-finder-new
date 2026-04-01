@@ -2166,6 +2166,216 @@ a {
   width: auto;
 }
 
+.detailSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.inviteSheetBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.inviteFriendRow {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  padding: 12px;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.inviteFriendRow.selected {
+  border-color: rgba(200, 16, 46, 0.56);
+  background: rgba(200, 16, 46, 0.16);
+}
+
+.inviteMessageInput {
+  min-height: 96px;
+}
+
+.eventInviteStack {
+  margin-top: 12px;
+}
+
+.inviteMetaList {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inviteMetaRow {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.socialCardTitleBtn {
+  font-size: 13px;
+  font-weight: 1000;
+  text-align: left;
+}
+
+.messagePageIntro {
+  display: block;
+}
+
+.conversationList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.conversationRow {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+
+.conversationRow.unread {
+  border-color: rgba(200, 16, 46, 0.4);
+  background: linear-gradient(180deg, rgba(200, 16, 46, 0.12), rgba(255, 255, 255, 0.04));
+}
+
+.conversationMain {
+  min-width: 0;
+  flex: 1;
+}
+
+.conversationTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.conversationName {
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.conversationTime {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.conversationPreview {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.84);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversationUnread {
+  min-width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(200, 16, 46, 0.94);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 1000;
+}
+
+.chatPage {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 16px);
+}
+
+.chatThread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+.chatBubble {
+  max-width: 82%;
+  border-radius: 18px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+}
+
+.chatBubble.mine {
+  align-self: flex-end;
+  background: rgba(200, 16, 46, 0.2);
+  border-color: rgba(200, 16, 46, 0.34);
+}
+
+.chatBubble.theirs {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chatBubbleBody {
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.chatBubbleMeta {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.chatComposer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(11, 15, 23, 0), rgba(11, 15, 23, 0.96) 20%);
+}
+
+.chatComposerInput {
+  min-height: 52px;
+  max-height: 132px;
+  resize: vertical;
+}
+
+.chatSendBtn {
+  width: auto;
+  min-width: 90px;
+}
+
 .notificationList {
   display: flex;
   flex-direction: column;

@@ -14,11 +14,12 @@ export function FriendList(props: {
   friends: Friend[];
   events: EventModel[];
   onOpenEvent: (eventId: string) => void;
+  onMessageFriend?: (friendId: string) => void;
   onRemoveFriend?: (friendId: string) => void;
   removingFriendId?: string | null;
   emptyMessage?: string;
 }) {
-  const { friends, events, onOpenEvent, onRemoveFriend, removingFriendId, emptyMessage } = props;
+  const { friends, events, onOpenEvent, onMessageFriend, onRemoveFriend, removingFriendId, emptyMessage } = props;
 
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e] as const)), [events]);
 
@@ -44,16 +45,23 @@ export function FriendList(props: {
                   </div>
                 </div>
               </div>
-              {onRemoveFriend ? (
-                <button
-                  type="button"
-                  className="secondaryBtn socialActionBtn"
-                  onClick={() => onRemoveFriend(friend.id)}
-                  disabled={removingFriendId === friend.id}
-                >
-                  {removingFriendId === friend.id ? "Removing..." : "Remove"}
-                </button>
-              ) : null}
+              <div className="socialActionRow">
+                {onMessageFriend ? (
+                  <button type="button" className="secondaryBtn socialActionBtn" onClick={() => onMessageFriend(friend.id)}>
+                    Message
+                  </button>
+                ) : null}
+                {onRemoveFriend ? (
+                  <button
+                    type="button"
+                    className="secondaryBtn socialActionBtn"
+                    onClick={() => onRemoveFriend(friend.id)}
+                    disabled={removingFriendId === friend.id}
+                  >
+                    {removingFriendId === friend.id ? "Removing..." : "Remove"}
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div className="friendStatRow">

@@ -159,6 +159,19 @@ def get_friends_for_user(user_id: str) -> list[dict]:
     return [profiles[target_id] for target_id in target_ids if target_id in profiles]
 
 
+def are_friends(user_id: str, other_user_id: str) -> bool:
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT 1
+            FROM friends
+            WHERE user_id = ? AND friend_id = ?;
+            """,
+            (user_id, other_user_id),
+        ).fetchone()
+    return row is not None
+
+
 def search_users_for_friendship(user_id: str, query: str, limit: int = 8) -> list[dict]:
     normalized_query = query.strip().lower()
     with get_connection() as connection:

@@ -20,6 +20,8 @@ import { Profile } from "./pages/Profile";
 import { Notifications } from "./pages/Notifications";
 import { EventDetails } from "./pages/EventDetails";
 import { BuildingFloorView } from "./pages/BuildingFloorView";
+import { Messages } from "./pages/Messages";
+import { ChatDetail } from "./pages/ChatDetail";
 
 const AppShell: React.FC = () => {
   const location = useLocation();
@@ -71,6 +73,7 @@ const AppShell: React.FC = () => {
       !location.pathname.startsWith("/event/") &&
       !location.pathname.startsWith("/clubs/") &&
       !location.pathname.startsWith("/notifications") &&
+      !location.pathname.startsWith("/messages") &&
       !location.pathname.startsWith("/search") &&
       !location.pathname.startsWith("/building/") &&
       !location.pathname.startsWith("/login") &&
@@ -101,6 +104,8 @@ const AppShell: React.FC = () => {
           <Route path="/friends" element={<Friends />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:conversationId" element={<ChatDetail />} />
           <Route path="/events/:id/edit" element={<EditEvent />} />
           <Route path="/event/:id" element={<EventDetails />} />
           <Route path="/building/:buildingId" element={<BuildingFloorView />} />

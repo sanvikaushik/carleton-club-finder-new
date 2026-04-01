@@ -1,3 +1,7 @@
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS conversation_participants;
+DROP TABLE IF EXISTS conversations;
+DROP TABLE IF EXISTS event_invites;
 DROP TABLE IF EXISTS event_attendees;
 DROP TABLE IF EXISTS event_tags;
 DROP TABLE IF EXISTS club_memberships;
@@ -124,6 +128,22 @@ CREATE TABLE friend_requests (
     CHECK (status IN ('pending', 'accepted', 'declined'))
 );
 
+CREATE TABLE event_invites (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    sender_user_id TEXT NOT NULL,
+    recipient_user_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    message TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    responded_at TEXT,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (sender_user_id <> recipient_user_id),
+    CHECK (status IN ('pending', 'accepted', 'declined'))
+);
+
 CREATE TABLE notifications (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -141,6 +161,32 @@ CREATE TABLE notifications (
     FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
     FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE SET NULL
+);
+
+CREATE TABLE conversations (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE conversation_participants (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    sender_user_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE user_interests (
@@ -184,6 +230,13 @@ CREATE INDEX idx_schedule_classes_user_id ON schedule_classes(user_id);
 CREATE UNIQUE INDEX idx_users_email_unique ON users(email);
 CREATE INDEX idx_friend_requests_sender ON friend_requests(sender_user_id, status);
 CREATE INDEX idx_friend_requests_receiver ON friend_requests(receiver_user_id, status);
+CREATE INDEX idx_event_invites_event_status ON event_invites(event_id, status);
+CREATE INDEX idx_event_invites_recipient_status ON event_invites(recipient_user_id, status);
+CREATE INDEX idx_event_invites_sender_status ON event_invites(sender_user_id, status);
 CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read);
 CREATE INDEX idx_notifications_user_dismissed ON notifications(user_id, is_dismissed);
+CREATE UNIQUE INDEX idx_conversation_participants_unique ON conversation_participants(conversation_id, user_id);
+CREATE INDEX idx_conversation_participants_user ON conversation_participants(user_id, conversation_id);
+CREATE INDEX idx_messages_conversation_created ON messages(conversation_id, created_at);
+CREATE INDEX idx_messages_conversation_read ON messages(conversation_id, is_read);
 CREATE INDEX idx_user_interests_user_id ON user_interests(user_id);

@@ -22,7 +22,14 @@ try:
         set_event_attendance,
         update_event,
     )
+    from .queries.event_invite_queries import (
+        create_event_invite,
+        get_event_invite_summary_for_user,
+        list_event_invites_for_user,
+        respond_to_event_invite,
+    )
     from .queries.friend_queries import (
+        are_friends,
         create_friend_request,
         get_friend_events_feed,
         get_friends_for_user,
@@ -53,6 +60,14 @@ try:
         get_membership_role,
         list_club_memberships,
     )
+    from .queries.chat_queries import (
+        create_or_get_direct_conversation,
+        get_conversation_for_user,
+        list_conversations_for_user,
+        list_messages_for_conversation,
+        mark_conversation_read,
+        send_message,
+    )
     from .queries.search_queries import search_everything
     from .queries.schedule_queries import get_schedule_for_user
     from .queries.user_queries import get_user_by_id
@@ -70,7 +85,14 @@ except ImportError:
         set_event_attendance,
         update_event,
     )
+    from queries.event_invite_queries import (
+        create_event_invite,
+        get_event_invite_summary_for_user,
+        list_event_invites_for_user,
+        respond_to_event_invite,
+    )
     from queries.friend_queries import (
+        are_friends,
         create_friend_request,
         get_friend_events_feed,
         get_friends_for_user,
@@ -100,6 +122,14 @@ except ImportError:
         get_managed_clubs_for_user,
         get_membership_role,
         list_club_memberships,
+    )
+    from queries.chat_queries import (
+        create_or_get_direct_conversation,
+        get_conversation_for_user,
+        list_conversations_for_user,
+        list_messages_for_conversation,
+        mark_conversation_read,
+        send_message,
     )
     from queries.search_queries import search_everything
     from queries.schedule_queries import get_schedule_for_user
@@ -190,6 +220,70 @@ def _serialize_notification(notification: dict[str, Any]) -> dict[str, Any]:
         "eventId": notification.get("event_id"),
         "clubId": notification.get("club_id"),
         "link": notification.get("link"),
+    }
+
+
+def _serialize_social_user(user: dict[str, Any] | None) -> dict[str, Any] | None:
+    if user is None:
+        return None
+    return {
+        "id": user["id"],
+        "name": user["name"],
+        "email": user.get("email"),
+        "program": user.get("program"),
+        "year": user.get("year"),
+        "avatarColor": user.get("avatarColor"),
+    }
+
+
+def _serialize_event_invite(invite: dict[str, Any]) -> dict[str, Any]:
+    event = invite.get("event") or {}
+    return {
+        "id": invite["id"],
+        "eventId": invite["event_id"],
+        "senderUserId": invite["sender_user_id"],
+        "recipientUserId": invite["recipient_user_id"],
+        "status": invite["status"],
+        "message": invite.get("message") or "",
+        "createdAt": invite["created_at"],
+        "respondedAt": invite.get("responded_at"),
+        "event": {
+            "id": event.get("id"),
+            "title": event.get("title"),
+            "clubId": event.get("clubId"),
+            "clubName": event.get("clubName"),
+            "building": event.get("building"),
+            "room": event.get("room"),
+            "startTime": event.get("startTime"),
+            "endTime": event.get("endTime"),
+            "status": event.get("status"),
+        },
+        "sender": _serialize_social_user(invite.get("sender")),
+        "recipient": _serialize_social_user(invite.get("recipient")),
+    }
+
+
+def _serialize_conversation(conversation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": conversation["id"],
+        "createdAt": conversation["created_at"],
+        "updatedAt": conversation["updated_at"],
+        "otherParticipant": _serialize_social_user(conversation.get("other_participant")),
+        "lastMessagePreview": conversation.get("last_message_preview") or "",
+        "lastMessageTime": conversation.get("last_message_time"),
+        "unreadCount": int(conversation.get("unread_count") or 0),
+    }
+
+
+def _serialize_message(message: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": message["id"],
+        "conversationId": message["conversation_id"],
+        "senderUserId": message["sender_user_id"],
+        "body": message["body"],
+        "createdAt": message["created_at"],
+        "isRead": bool(message["is_read"]),
+        "sender": _serialize_social_user(message.get("sender")),
     }
 
 
@@ -1448,6 +1542,245 @@ def api_friends_events():
             for event in events
         ]
     )
+
+
+@api_bp.route("/events/<event_id>/invites", methods=["GET"])
+def api_event_invites_for_event(event_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = get_event_invite_summary_for_user(user["id"], event_id)
+    if payload is None:
+        return jsonify({"error": "Event not found"}), 404
+
+    return jsonify(
+        {
+            "eventId": payload["eventId"],
+            "incoming": [_serialize_event_invite(invite) for invite in payload["incoming"]],
+            "outgoing": [_serialize_event_invite(invite) for invite in payload["outgoing"]],
+            "accepted": [_serialize_event_invite(invite) for invite in payload["accepted"]],
+            "invitableFriends": [_serialize_social_user(friend) for friend in payload["invitableFriends"]],
+        }
+    )
+
+
+@api_bp.route("/events/<event_id>/invites", methods=["POST"])
+def api_create_event_invite(event_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    recipient_user_id = str(payload.get("recipientUserId", "")).strip()
+    if not recipient_user_id:
+        return jsonify({"error": "recipientUserId is required"}), 400
+
+    message = str(payload.get("message", "")).strip()
+    try:
+        invite = create_event_invite(user["id"], event_id, recipient_user_id, message)
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+    create_notification(
+        user_id=recipient_user_id,
+        notification_type="event_invite",
+        title=f"{user['name']} invited you to {invite['event']['title']}",
+        message=message or f"Open the event to accept or decline the invite.",
+        actor_user_id=user["id"],
+        event_id=event_id,
+        club_id=invite["event"]["clubId"],
+        link="/friends",
+    )
+
+    return jsonify({"invite": _serialize_event_invite(invite)}), 201
+
+
+@api_bp.route("/users/me/event-invites", methods=["GET"])
+def api_my_event_invites():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = list_event_invites_for_user(user["id"])
+    return jsonify(
+        {
+            "incoming": [_serialize_event_invite(invite) for invite in payload["incoming"]],
+            "outgoing": [_serialize_event_invite(invite) for invite in payload["outgoing"]],
+            "history": [_serialize_event_invite(invite) for invite in payload["history"]],
+        }
+    )
+
+
+@api_bp.route("/event-invites/<invite_id>/accept", methods=["POST"])
+def api_accept_event_invite(invite_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        invite = respond_to_event_invite(user["id"], invite_id, accept=True)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+    if invite is None:
+        return jsonify({"error": "Invite not found"}), 404
+
+    attendance_count, attending_event_ids = set_event_attendance(user["id"], invite["event_id"], True)
+    if attendance_count is None:
+        return jsonify({"error": "This event is no longer available."}), 409
+
+    create_notification(
+        user_id=invite["sender_user_id"],
+        notification_type="invite_accepted",
+        title=f"{user['name']} accepted your invite",
+        message=f"{user['name']} is now going to {invite['event']['title']}.",
+        actor_user_id=user["id"],
+        event_id=invite["event_id"],
+        club_id=invite["event"]["clubId"],
+        link=f"/event/{invite['event_id']}",
+    )
+
+    return jsonify(
+        {
+            "invite": _serialize_event_invite(invite),
+            "attendanceCount": attendance_count,
+            "attendingEventIds": attending_event_ids,
+        }
+    )
+
+
+@api_bp.route("/event-invites/<invite_id>/decline", methods=["POST"])
+def api_decline_event_invite(invite_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        invite = respond_to_event_invite(user["id"], invite_id, accept=False)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+    if invite is None:
+        return jsonify({"error": "Invite not found"}), 404
+
+    return jsonify({"invite": _serialize_event_invite(invite)})
+
+
+@api_bp.route("/conversations", methods=["GET"])
+def api_conversations():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    conversations = list_conversations_for_user(user["id"])
+    return jsonify([_serialize_conversation(conversation) for conversation in conversations])
+
+
+@api_bp.route("/conversations", methods=["POST"])
+def api_create_conversation():
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    friend_user_id = str(payload.get("friendUserId", "")).strip()
+    if not friend_user_id:
+        return jsonify({"error": "friendUserId is required"}), 400
+
+    try:
+        conversation = create_or_get_direct_conversation(user["id"], friend_user_id)
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+    return jsonify(_serialize_conversation(conversation)), 201
+
+
+@api_bp.route("/conversations/<conversation_id>", methods=["GET"])
+def api_conversation_detail(conversation_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    conversation = get_conversation_for_user(user["id"], conversation_id)
+    if conversation is None:
+        return jsonify({"error": "Conversation not found"}), 404
+
+    return jsonify(_serialize_conversation(conversation))
+
+
+@api_bp.route("/conversations/<conversation_id>/messages", methods=["GET"])
+def api_conversation_messages(conversation_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    messages = list_messages_for_conversation(user["id"], conversation_id)
+    if messages is None:
+        return jsonify({"error": "Conversation not found"}), 404
+
+    return jsonify([_serialize_message(message) for message in messages])
+
+
+@api_bp.route("/conversations/<conversation_id>/messages", methods=["POST"])
+def api_conversation_send_message(conversation_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Invalid request body", "details": "Expected a JSON object."}), 400
+
+    body = str(payload.get("body", ""))
+    try:
+        message, recipient_user_id = send_message(user["id"], conversation_id, body)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    create_notification(
+        user_id=recipient_user_id,
+        notification_type="direct_message",
+        title=f"New message from {user['name']}",
+        message=message["body"][:120],
+        actor_user_id=user["id"],
+        link=f"/messages/{conversation_id}",
+    )
+
+    return jsonify({"message": _serialize_message(message)}), 201
+
+
+@api_bp.route("/conversations/<conversation_id>/read", methods=["POST"])
+def api_conversation_mark_read(conversation_id: str):
+    user = _get_authenticated_user()
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+
+    updated_count = mark_conversation_read(user["id"], conversation_id)
+    if updated_count is None:
+        return jsonify({"error": "Conversation not found"}), 404
+
+    return jsonify({"updatedCount": updated_count})
 
 
 @api_bp.route("/schedule", methods=["GET"])

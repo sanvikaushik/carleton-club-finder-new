@@ -88,6 +88,56 @@ CREATE TABLE IF NOT EXISTS club_memberships (
 );
 """
 
+EVENT_INVITES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS event_invites (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    sender_user_id TEXT NOT NULL,
+    recipient_user_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    message TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    responded_at TEXT,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (sender_user_id <> recipient_user_id),
+    CHECK (status IN ('pending', 'accepted', 'declined'))
+);
+"""
+
+CONVERSATIONS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CONVERSATION_PARTICIPANTS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS conversation_participants (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+"""
+
+MESSAGES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    sender_user_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+"""
+
 
 def apply_migrations() -> None:
     with get_connection() as connection:
@@ -234,6 +284,54 @@ def apply_migrations() -> None:
                 """
                 CREATE INDEX IF NOT EXISTS idx_club_memberships_club_role
                 ON club_memberships(club_id, role);
+                """
+            )
+
+            connection.execute(EVENT_INVITES_TABLE_SQL)
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_event_invites_event_status
+                ON event_invites(event_id, status);
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_event_invites_recipient_status
+                ON event_invites(recipient_user_id, status);
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_event_invites_sender_status
+                ON event_invites(sender_user_id, status);
+                """
+            )
+
+            connection.execute(CONVERSATIONS_TABLE_SQL)
+            connection.execute(CONVERSATION_PARTICIPANTS_TABLE_SQL)
+            connection.execute(MESSAGES_TABLE_SQL)
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_participants_unique
+                ON conversation_participants(conversation_id, user_id);
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_conversation_participants_user
+                ON conversation_participants(user_id, conversation_id);
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_messages_conversation_created
+                ON messages(conversation_id, created_at);
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_messages_conversation_read
+                ON messages(conversation_id, is_read);
                 """
             )
 
